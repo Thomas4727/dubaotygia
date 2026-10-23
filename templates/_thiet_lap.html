@@ -1,0 +1,29 @@
+{# Bảng thông số chi tiết của hai chế độ – dùng ở form chạy và trang kết quả.
+   che_do: chế độ của phiên (tô đậm cột tương ứng) hoặc none. khong_gian: bảng miền siêu tham số (tùy chọn). #}
+{% macro bang_thiet_lap(che_do=none, khong_gian=none) %}
+<div class="cuon-ngang"><table class="bang bang-thiet-lap">
+  <thead><tr><th>Nhóm</th><th>Thông số</th>
+    <th class="so {{ 'cot-chon' if che_do == 'chay_thu' }}">Chạy thử</th><th class="so {{ 'cot-chon' if che_do == 'chay_day_du' }}">Chạy đầy đủ</th></tr></thead>
+  <tbody>
+  {% for label, thu, du in THIET_LAP_BAI %}
+    <tr><td class="muted">{{ 'Số lần lặp' if loop.first }}</td><td>{{ label }}</td>
+      <td class="so so-lieu">{{ thu }}</td><td class="so so-lieu">{{ du }}</td></tr>{% endfor %}
+  {% for g, label, thu, du in THIET_LAP_WEB %}
+    <tr><td class="muted">{{ g if loop.first or THIET_LAP_WEB[loop.index0 - 1][0] != g }}</td><td>{{ label }}</td>
+      <td class="so so-lieu">{{ thu }}</td><td class="so so-lieu">{{ du }}</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% if khong_gian %}
+<details style="margin-top:8px"><summary>Phạm vi tìm kiếm cấu hình và cấu hình mặc định của từng mô hình</summary>
+  <div class="cuon-ngang cuon-doc"><table class="bang">
+    <thead><tr><th>Mô hình</th><th>Tham số</th><th>Phạm vi (Chạy thử)</th><th>Phạm vi (Chạy đầy đủ)</th><th>Mặc định</th></tr></thead>
+    <tbody>{% for m, ten, thu, du, base in khong_gian %}
+      <tr><td>{{ MODEL_NAMES[m] if loop.first or khong_gian[loop.index0 - 1][0] != m }}</td><td><code>{{ ten }}</code></td>
+        <td class="o-tham-so">{{ thu }}</td><td class="o-tham-so">{{ du }}</td><td class="o-tham-so">{{ base if base is not none else '—' }}</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  <p class="ghi-chu">p: số ngày quá khứ đưa vào mô hình; w: độ dài cửa sổ tính trung bình và độ lệch chuẩn trượt (ANN chỉ dùng p).
+    ANN dùng hàm kích hoạt ReLU.</p>
+</details>
+{% endif %}
+{% endmacro %}

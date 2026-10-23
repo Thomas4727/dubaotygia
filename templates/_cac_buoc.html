@@ -1,0 +1,27 @@
+{# Mô tả rõ các bước chạy của một chế độ, lấy số liệu thật từ cấu hình (run_config) của chế độ đó.
+   c: dict cấu hình đầy đủ của chế độ (build_run_config(...) hoặc kq.settings). #}
+{% macro cac_buoc(c) %}
+<ol class="cac-buoc-chay">
+  <li><b>Đọc và làm sạch dữ liệu</b> – chuẩn hóa ngày, sắp xếp theo thời gian, bỏ dòng trùng ngày, bỏ tỷ giá trống, âm hoặc bằng 0,
+    loại điểm bất thường (nhảy hơn {{ (c.anomaly_jump * 100)|so(0) }}% rồi hôm sau quay về), chỉ giữ ngày làm việc, không tự điền ngày thiếu.</li>
+  <li><b>Thống kê và kiểm tra tính dừng</b> – tính các chỉ số mô tả và chạy kiểm định ADF, Phillips–Perron để biết cần dự báo
+    trên mức tỷ giá hay trên mức thay đổi hằng ngày.</li>
+  <li><b>Chia dữ liệu theo thời gian</b> – {{ ((1 - c.test_ratio) * 100)|so(0) }}% đầu để xây dựng mô hình,
+    {{ (c.test_ratio * 100)|so(0) }}% cuối để kiểm tra. Mô hình không bao giờ nhìn thấy phần kiểm tra khi học.</li>
+  <li><b>ARIMA</b> – thử 25 cấu trúc, chọn cấu trúc tốt nhất theo AIC. ARIMA dùng làm mốc so sánh.</li>
+  <li><b>ANN, Random Forest, XGBoost với cấu hình mặc định</b> – mỗi mô hình huấn luyện <b>{{ c.n_baseline_seeds }} lần</b>
+    (khởi tạo ngẫu nhiên khác nhau) để đo độ chính xác và độ ổn định.</li>
+  <li><b>Tự động tìm cấu hình tốt hơn bằng GA và SA</b> – với mỗi mô hình, mỗi thuật toán chạy <b>{{ c.n_hpo_runs }} lần độc lập</b>;
+    mỗi lần thử tối đa <b>{{ c.budget }} cấu hình</b>, mỗi cấu hình được chấm điểm trên <b>{{ c.n_folds }} giai đoạn lịch sử</b>
+    liên tiếp (không dùng phần kiểm tra).
+    <small class="muted">GA: quần thể {{ c.ga_pop_size }} cấu hình, tối đa {{ c.ga_max_generations }} thế hệ. SA: {{ c.sa_moves_per_temp }} cấu hình
+      ở mỗi mức nhiệt rồi hạ nhiệt. Giới hạn: tối đa {{ c.caps.ANN_epochs }} epoch (ANN), {{ c.caps.RF_n_estimators }} cây (Random Forest),
+      {{ c.caps.XGB_n_estimators }} cây (XGBoost).</small></li>
+  <li><b>Đánh giá trên phần kiểm tra</b> – 9 mô hình (ANN, Random Forest, XGBoost × mặc định / GA / SA) mỗi mô hình chạy lại
+    <b>{{ c.n_test_seeds_baseline }} lần</b> trên {{ (c.test_ratio * 100)|so(0) }}% dữ liệu cuối.</li>
+  <li><b>Chọn mô hình</b> có sai số RMSE trung bình thấp nhất trong 9 mô hình trên. ARIMA và cách "giữ nguyên giá hôm trước"
+    chỉ để so sánh, không được chọn.</li>
+  <li><b>Dự báo ngày làm việc tiếp theo</b> – huấn luyện lại mô hình được chọn <b>{{ c.n_refit_seeds }} lần</b>, lấy trung bình
+    và báo <b>Tăng / Giảm / Ổn định</b> (Ổn định khi thay đổi dưới {{ c.alert_watch_pct|so(2) }}%).</li>
+</ol>
+{% endmacro %}

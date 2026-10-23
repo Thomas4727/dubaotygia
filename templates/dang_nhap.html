@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon %}
+{% block tieu_de %}Quản trị · Dự báo tỷ giá{% endblock %}
+{% block noi_dung %}
+<section class="the the-dang-nhap" aria-labelledby="td-dang-nhap">
+  <div class="the-dau"><div>
+    <span class="nhan-muc">{{ icon('lock', 'nho') }}Chế độ Quản trị</span>
+    <h1 id="td-dang-nhap">Mở khóa để chỉnh sửa</h1>
+  </div></div>
+  {% if chua_dat %}
+    <div class="thong-bao thong-bao-canh-bao">{{ icon('alert') }}<div>Chưa đặt mật khẩu Quản trị. Trên máy chạy web, bấm đúp
+      <code>chia_se_web.bat</code> (lần đầu sẽ hỏi đặt mật khẩu) hoặc chạy <code>.venv\Scripts\python.exe dat_mat_khau.py</code>.</div></div>
+  {% else %}
+    <form method="post" class="xep-doc">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="truong"><span>Mật khẩu Quản trị</span>
+        <input type="password" name="mat_khau" autocomplete="current-password" required autofocus></label>
+      <button class="nut nut-chinh" type="submit">{{ icon('unlock') }}Mở khóa</button>
+    </form>
+  {% endif %}
+  <p class="ghi-chu" style="margin-top:16px">{{ icon('info') }}<span>Không cần mật khẩu để xem kết quả, tải dữ liệu lên và chạy mô hình
+    (Chạy thử). Chế độ Quản trị dùng để xóa phiên, Chạy đầy đủ và hủy phiên của người khác.</span></p>
+  <p style="margin-top:12px"><a class="quay-lai" href="{{ url_for('trang_chu') }}">{{ icon('back') }}Về trang chủ, không cần đăng nhập</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, nhan_canh_bao %}
+{% macro link_phien(p) -%}
+  {{ url_for('xem_nckh', pid=p.Id) if p.Loai == 'nckh' else url_for('xem_phien', phien_id=p.Id) }}
+{%- endmacro %}
+{% macro nhan_tt(p) -%}
+  {%- set ds = {'uoc_tinh': ('clock', 'Đang ước tính', 'tt-dang_cho'), 'cho_xac_nhan': ('bell', 'Chờ xác nhận', 'tt-dang_cho'),
+                'cho': ('clock', 'Đang chờ', 'tt-dang_cho'), 'dang_cho': ('clock', 'Đang chờ', 'tt-dang_cho'),
+                'dang_chay': ('loader', 'Đang chạy ' ~ (p.PhanTram|round|int) ~ '%', 'tt-dang_chay'),
+                'xong': ('check', 'Xong', 'tt-xong'), 'loi': ('x', 'Lỗi', 'tt-loi'), 'huy': ('x', 'Đã hủy', 'tt-loi')} -%}
+  {%- set ic, chu, lop = ds.get(p.TrangThai, ('info', p.TrangThai, '')) -%}
+  <span class="nhan {{ lop }}">{{ icon(ic, 'quay' if p.TrangThai == 'dang_chay' else '') }}{{ chu }}</span>
+{%- endmacro %}
+{% macro ten_che_do(p) -%}
+  {%- if p.Loai == 'nckh' -%}<span class="nhan {{ 'tt-dang_cho' if p.CheDo == 'chay_thu' else 'tt-dang_chay' }}">{{ MODE_NAMES[p.CheDo] }}</span>
+  {%- else -%}<span class="muted">Bản cũ ({{ p.CheDo }})</span>{%- endif -%}
+{%- endmacro %}
+{% macro ten_thuat_toan(p) -%}
+  {%- if p.Loai == 'nckh' -%}
+    {%- set tt = p.ThuatToan.split(',') -%}
+    {{ tt|map('replace', 'XGB', 'XGBoost')|join(', ') }}{% if tt|reject('equalto', 'ARIMA')|list %} <small class="muted">· {{ p.BienThe|replace(',', '/') }}</small>{% endif %}
+  {%- else -%}<span class="muted">11 ứng viên (bản cũ)</span>{%- endif -%}
+{%- endmacro %}
+{% block noi_dung %}
+
+<div class="dau-trang">
+  <div>
+    <h1>Dự báo tỷ giá USD/VND ngày làm việc tiếp theo</h1>
+    <p>Tải lên lịch sử tỷ giá, web tự làm sạch dữ liệu, huấn luyện và so sánh nhiều mô hình (ANN, Random Forest, XGBoost; ARIMA để
+      so sánh), tự tìm cấu hình tốt hơn bằng thuật toán di truyền (GA) và mô phỏng luyện kim (SA), rồi chọn mô hình sai số thấp nhất
+      để dự báo tỷ giá ngày tiếp theo kèm tín hiệu Tăng / Giảm / Ổn định.</p>
+  </div>
+</div>
+
+{% if loi_db %}
+  <div class="thong-bao thong-bao-loi" role="alert">{{ icon('database') }}
+    <div><b>Không kết nối được SQL Server.</b> Kiểm tra dịch vụ SQL Server (SQLEXPRESS) đang chạy và đã chạy
+      <code>python khoi_tao_db.py</code>.<br><small class="muted">{{ loi_db }}</small></div>
+  </div>
+{% endif %}
+
+<div class="luoi">
+  <section class="the c-5" aria-labelledby="tieu-de-moi-nhat">
+    <div class="the-dau">
+      <div>
+        <span class="nhan-muc">{{ icon('activity', 'nho') }}Mới nhất</span>
+        <h2 id="tieu-de-moi-nhat">Dự báo gần nhất</h2>
+      </div>
+      {% if moi_nhat %}<a class="nut nut-vien nut-nho" href="{{ link_phien(moi_nhat) }}">Xem chi tiết</a>{% endif %}
+    </div>
+    {% if moi_nhat %}
+      <div class="xep-doc">
+        <div>
+          <span class="muted" style="font-size:13px">Tỷ giá dự báo ngày {{ moi_nhat.NgayDuBao|ngay }}</span>
+          <div class="kpi-so" style="font-size: 38px">{{ moi_nhat.DuBaoT1|so(2) }}</div>
+          {% if moi_nhat.Loai == 'nckh' %}
+          <div class="kpi-phu">{{ moi_nhat.ThayDoiPct|pt(4) }} so với ngày quan sát cuối</div>
+          {% if moi_nhat.RmseChon %}
+          <div class="kpi-phu">Khoảng thường gặp (± 1,96 × sai số RMSE):
+            <span class="so-lieu">{{ (moi_nhat.DuBaoT1|float - 1.96 * moi_nhat.RmseChon)|so(1) }} – {{ (moi_nhat.DuBaoT1|float + 1.96 * moi_nhat.RmseChon)|so(1) }}</span></div>
+          {% endif %}
+          <div class="kpi-phu">Dao động giữa các lần huấn luyện:
+            <span class="so-lieu">{{ moi_nhat.DuBaoP05|so(1) }} – {{ moi_nhat.DuBaoP95|so(1) }}</span>
+</div>
+          {% endif %}
+        </div>
+        <dl class="muc-thong-tin" style="margin:0">
+          <div><dt>Cảnh báo</dt><dd style="font-family: var(--font-ui)">{{ nhan_canh_bao(moi_nhat.CanhBao) }}</dd></div>
+          <div><dt>Mô hình được chọn</dt><dd style="font-family: var(--font-ui); font-weight:600">
+            {{ MODEL_NAMES.get(moi_nhat.MoHinhChon, moi_nhat.MoHinhChon) }}{{ ' – ' ~ moi_nhat.BienTheChon if moi_nhat.BienTheChon and moi_nhat.BienTheChon != '—' }}</dd></div>
+        </dl>
+        <p class="muted" style="font-size:13px">{{ icon('file', 'nho') }} {{ moi_nhat.TenFile }}{% if la_du_lieu_mau(moi_nhat.TenFile) %} <span class="nhan tt-dang_cho nhan-mo-phong" title="tygia_mau.csv là dữ liệu mô phỏng, lệch khoảng 430 VND so với thực tế">Dữ liệu mô phỏng</span>{% endif %} · {{ ten_che_do(moi_nhat) }}</p>
+      </div>
+    {% else %}
+      <div class="trong">{{ icon('logo') }}<b>Chưa có dự báo nào</b>
+        <span>Tải file tỷ giá lên và bấm "Tải lên &amp; Dự báo".</span></div>
+    {% endif %}
+    {% if dang_chay %}
+      <div class="thong-bao thong-bao-info" style="margin-top:16px">{{ icon('loader', 'quay') }}
+        <div>{{ dang_chay|length }} phiên đang chạy, chờ hoặc chờ xác nhận:
+          {% for p in dang_chay %}<a href="{{ link_phien(p) }}">#{{ p.Id }}</a>{{ ', ' if not loop.last }}{% endfor %}</div>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="the c-7" aria-labelledby="tieu-de-tai-len">
+    <div class="the-dau">
+      <div>
+        <span class="nhan-muc">{{ icon('upload', 'nho') }}Tạo dự báo mới</span>
+        <h2 id="tieu-de-tai-len">Tải dữ liệu tỷ giá và chọn cách chạy</h2>
+      </div>
+    </div>
+    {% if chi_xem %}
+      <div class="thong-bao thong-bao-info">{{ icon('info') }}<div>{{ THONG_BAO_CHI_XEM }} Bạn vẫn xem được lịch sử và trang kết quả.</div></div>
+    {% else %}
+    <form class="form-chay" action="{{ url_for('tai_len') }}" method="post" enctype="multipart/form-data">
+      <label class="vung-tha" id="vung-tha">
+        <input class="sr-only" type="file" name="tep" id="tep" accept=".csv,.xlsx" required aria-describedby="goi-y-tep">
+        <span class="vung-tha-icon">{{ icon('upload', 'lon') }}</span>
+        <span>
+          <b id="ten-tep">Chọn file hoặc kéo thả vào đây</b>
+          <span class="muted" id="goi-y-tep">CSV hoặc XLSX · cột Ngày và Tỷ giá</span>
+        </span>
+      </label>
+      {% with nut_gui = "Tải lên & Dự báo" %}{% include "_form_chay.html" %}{% endwith %}
+    </form>
+    {% endif %}
+
+    <details style="margin-top: 16px">
+      <summary>{{ icon('chevron') }}Định dạng file được hỗ trợ</summary>
+      <ul class="danh-sach">
+        <li><code>Ngay,TyGia</code> (mặc định), <b>Investing.com</b> (<code>Date,Price</code>), <b>Yahoo Finance</b> (<code>Date,Close</code>).</li>
+        <li>Ngày dạng <code>24/09/2026</code>, <code>2026-09-24</code> hoặc <code>09/24/2026</code>.</li>
+        <li>Web tự làm sạch: chuẩn hóa ngày, sắp xếp, bỏ dòng trùng, bỏ giá trị âm hoặc bằng 0, loại điểm bất thường, chỉ giữ ngày làm việc.</li>
+      </ul>
+      <p style="margin-top: 12px"><a class="nut nut-vien nut-nho" href="{{ url_for('du_lieu_mau') }}">{{ icon('download') }}Tải file mẫu</a>
+        <small class="muted">dữ liệu giả lập 783 dòng, chỉ để chạy thử</small></p>
+    </details>
+  </section>
+
+  <section class="the c-12" aria-labelledby="tieu-de-lich-su">
+    <div class="the-dau">
+      <div>
+        <span class="nhan-muc">{{ icon('database', 'nho') }}Lưu trong SQL Server</span>
+        <h2 id="tieu-de-lich-su">Lịch sử dự báo</h2>
+      </div>
+      <label class="o-chon"><input type="checkbox" id="an-du-lieu-mau" checked> Ẩn phiên dữ liệu mẫu
+        <small class="muted" id="so-an"></small></label>
+    </div>
+    {% if lich_su %}
+      <div class="cuon-ngang">
+      <table class="bang">
+        <thead>
+          <tr><th>Phiên</th><th>File</th><th>Chế độ</th><th>Thuật toán</th><th>Trạng thái</th><th>Mô hình chọn</th>
+              <th class="so">Dự báo ngày tới</th><th>Cảnh báo</th><th>Tạo lúc</th><th><span class="sr-only">Thao tác</span></th></tr>
+        </thead>
+        <tbody>
+        {% for p in lich_su %}
+          <tr{% if la_du_lieu_mau(p.TenFile) %} data-du-lieu-mau{% endif %}>
+            <td><a href="{{ link_phien(p) }}">#{{ p.Id }}</a></td>
+            <td>{{ p.TenFile }} <small class="muted">· {{ p.SoDong|so }} dòng</small>{% if la_du_lieu_mau(p.TenFile) %} <span class="nhan tt-dang_cho nhan-mo-phong" title="tygia_mau.csv là dữ liệu mô phỏng, lệch khoảng 430 VND so với thực tế">Dữ liệu mô phỏng</span>{% endif %}</td>
+            <td>{{ ten_che_do(p) }}</td>
+            <td>{{ ten_thuat_toan(p) }}</td>
+            <td>{{ nhan_tt(p) }}</td>
+            <td>{% if p.MoHinhChon %}{{ MODEL_NAMES.get(p.MoHinhChon, p.MoHinhChon) }}{{ ' – ' ~ p.BienTheChon if p.BienTheChon and p.BienTheChon != '—' }}{% if p.Loai == 'nckh' and p.MoHinhChon == 'ARIMA' %} <small class="muted" title="Phiên bản cũ dùng ARIMA làm mô hình chính; phiên bản hiện tại chỉ dùng ARIMA để so sánh">(phiên bản cũ)</small>{% endif %}{% elif p.Loai == 'nckh' and p.TrangThai == 'xong' %}<small class="muted">chỉ chạy ARIMA (so sánh)</small>{% else %}<span class="o-rong">—</span>{% endif %}</td>
+            <td class="so">{% if p.DuBaoT1 %}<span class="so-lieu">{{ p.DuBaoT1|so(2) }}</span> <small class="muted">{{ p.NgayDuBao|ngay }}</small>{% else %}<span class="o-rong">—</span>{% endif %}</td>
+            <td>{{ nhan_canh_bao(p.CanhBao) }}</td>
+            <td class="muted">{{ p.ThoiGianTao|ngay(true) }}</td>
+            <td class="so">
+              {% if la_quan_tri %}
+              <form method="post" action="{{ url_for('xoa_nckh', pid=p.Id) if p.Loai == 'nckh' else url_for('xoa_phien', phien_id=p.Id) }}"
+                    onsubmit="return confirm('Xóa phiên #{{ p.Id }} và kết quả của nó? Không hoàn tác được.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="nut nut-icon nguy" aria-label="Xóa phiên #{{ p.Id }}">{{ icon('trash') }}</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <div class="trong">{{ icon('database') }}<b>Chưa có phiên dự báo nào</b>
+        <span>Các lần chạy sẽ được lưu ở đây để xem lại.</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+  // Bộ lọc "Ẩn phiên dữ liệu mẫu" (mặc định bật; chỉ ẩn trên giao diện, không xóa dữ liệu)
+  (function () {
+    const hop = document.getElementById("an-du-lieu-mau");
+    if (!hop) return;
+    const dongMau = [...document.querySelectorAll("tr[data-du-lieu-mau]")];
+    const ap = () => {
+      dongMau.forEach(tr => { tr.hidden = hop.checked; });
+      document.getElementById("so-an").textContent = hop.checked && dongMau.length ? `(đang ẩn ${dongMau.length} phiên)` : "";
+    };
+    hop.addEventListener("change", ap);
+    ap();
+  })();
+  const tep = document.getElementById("tep");
+  if (tep) {
+  const vung = document.getElementById("vung-tha");
+  tep.addEventListener("change", () => {
+    const f = tep.files[0];
+    document.getElementById("ten-tep").textContent = f ? f.name : "Chọn file hoặc kéo thả vào đây";
+    document.getElementById("goi-y-tep").textContent = f ? (f.size / 1024).toFixed(0) + " KB · sẵn sàng chạy"
+                                                        : "CSV hoặc XLSX · cột Ngày và Tỷ giá";
+    vung.classList.toggle("da-chon", !!f);
+  });
+  ["dragover", "dragenter"].forEach(e => vung.addEventListener(e, ev => { ev.preventDefault(); vung.classList.add("keo"); }));
+  ["dragleave", "drop"].forEach(e => vung.addEventListener(e, () => vung.classList.remove("keo")));
+  vung.addEventListener("drop", ev => {
+    ev.preventDefault();
+    tep.files = ev.dataTransfer.files;
+    tep.dispatchEvent(new Event("change"));
+  });
+  }
+</script>
+{% endblock %}

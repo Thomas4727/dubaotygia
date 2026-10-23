@@ -1,0 +1,19 @@
+{% macro icon(ten, lop='') %}<svg class="icon {{ lop }}" aria-hidden="true"><use href="#i-{{ ten }}"/></svg>{% endmacro %}
+
+{% macro nhan_trang_thai(p) -%}
+  {%- set ds = {'dang_cho': ('clock', 'Đang chờ'), 'dang_chay': ('loader', 'Đang chạy ' ~ p.PhanTram ~ '%'),
+                'xong': ('check', 'Xong'), 'loi': ('x', 'Lỗi')} -%}
+  {%- set ic, chu = ds[p.TrangThai] -%}
+  <span class="nhan tt-{{ p.TrangThai }}">{{ icon(ic, 'quay' if p.TrangThai == 'dang_chay' else '') }}{{ chu }}</span>
+{%- endmacro %}
+
+{% macro nhan_canh_bao(nhan, lon=false) -%}
+  {%- if nhan -%}
+  {%- set ic = {'Ổn định': 'flat', 'Tăng': 'up', 'Giảm': 'down', 'Theo dõi': 'bell', 'Biến động mạnh': 'alert'}.get(nhan, 'info') -%}
+  <span class="nhan {{ 'nhan-lon' if lon }} {{ nhan|lop_canh_bao }}">{{ icon(ic) }}{{ nhan }}</span>
+  {%- else -%}<span class="o-rong">—</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro ten_mo_hinh(mo_hinh, bien_the) -%}
+  {{ mo_hinh ~ ('' if not bien_the or bien_the == '—' else ' ' ~ bien_the) }}
+{%- endmacro %}

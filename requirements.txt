@@ -1,0 +1,14 @@
+flask>=3.0
+waitress>=3.0       # máy chủ web khi chia sẻ (chia_se_web.bat)
+pandas>=2.2
+numpy>=2.0
+pyodbc>=5.1
+statsmodels>=0.14
+arch>=7.0
+scikit-learn>=1.5
+xgboost>=2.1
+torch>=2.5          # bản CPU: cai_dat.bat cài từ https://download.pytorch.org/whl/cpu
+scipy>=1.13
+joblib>=1.4
+openpyxl>=3.1
+pytest>=8.0

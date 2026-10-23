@@ -1,0 +1,22 @@
+# Bí mật của máy này – KHÔNG đưa lên GitHub
+tai_khoan.json
+.khoa_bi_mat
+link_chia_se.txt
+.env
+
+# Thư viện Python (mỗi máy tự cài bằng cai_dat.bat)
+.venv/
+venv/
+
+# Kết quả chạy, file tạm
+artifacts/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+
+# Công cụ, hệ điều hành
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

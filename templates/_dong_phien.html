@@ -1,0 +1,11 @@
+{# Một dòng trong bảng phiên. Cần biến p. #}
+{% from "_macros.html" import nhan_trang_thai, nhan_canh_bao, ten_mo_hinh %}
+<tr>
+  <td><a href="{{ url_for('xem_phien', phien_id=p.Id) }}">#{{ p.Id }}</a></td>
+  <td>{{ p.CheDo }} · {{ p.CheDoMucTieu }}</td>
+  <td>{{ nhan_trang_thai(p) }}</td>
+  <td>{% if p.MoHinhChon %}{{ ten_mo_hinh(p.MoHinhChon, p.BienTheChon) }}{% else %}<span class="o-rong">—</span>{% endif %}</td>
+  <td class="so">{% if p.DuBaoT1 %}<span class="so-lieu">{{ p.DuBaoT1|so(2) }}</span> <small class="muted">{{ p.NgayDuBao|ngay }}</small>{% else %}<span class="o-rong">—</span>{% endif %}</td>
+  <td>{{ nhan_canh_bao(p.CanhBao) }}</td>
+  <td class="muted">{{ p.ThoiGianTao|ngay(true) }}</td>
+</tr>

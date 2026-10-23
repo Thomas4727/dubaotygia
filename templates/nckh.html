@@ -1,0 +1,589 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icon, nhan_canh_bao %}
+{% from "_thiet_lap.html" import bang_thiet_lap with context %}
+{% from "_cac_buoc.html" import cac_buoc with context %}
+{% block tieu_de %}{% if kq and kq.table_4_6 %}Dự báo {{ kq.table_4_6.Next_Forecast_Date|ngay }} · {% endif %}Phiên #{{ p.Id }} · Dự báo tỷ giá{% endblock %}
+{% macro ten_mh(label) -%}
+  {{- label|replace(' – Baseline', ' (cấu hình mặc định)')|replace(' – GA', ' (tối ưu bằng GA)')|replace(' – SA', ' (tối ưu bằng SA)') -}}
+{%- endmacro %}
+{% macro ten_uv(k) -%}
+  {%- if k == 'RW' -%}Giữ nguyên giá hôm trước{%- elif k == 'ARIMA' -%}ARIMA{%- else -%}{%- set m, v = k.split('|') -%}{{ MODEL_NAMES[m] }} – {{ {'Baseline': 'mặc định', 'GA': 'GA', 'SA': 'SA'}[v] }}{%- endif -%}
+{%- endmacro %}
+{% macro o_so(x, nd=3) -%}{{ x|so(nd) if x is not none else '—' }}{%- endmacro %}
+{% block noi_dung %}
+
+<div>
+  <a class="quay-lai" href="{{ url_for('trang_chu') }}">{{ icon('back') }}Trang chủ</a>
+  <div class="dau-trang">
+    <div>
+      <h1>Phiên dự báo #{{ p.Id }} <span class="nhan {{ 'tt-dang_cho' if p.CheDo == 'chay_thu' else 'tt-dang_chay' }}">{{ MODE_NAMES[p.CheDo] }}</span></h1>
+      <p>{{ icon('file', 'nho') }} {{ lan.TenFile }}{% if du_lieu_mo_phong %} <span class="nhan tt-dang_cho nhan-mo-phong" title="tygia_mau.csv là dữ liệu mô phỏng, lệch khoảng 430 VND so với thực tế">Dữ liệu mô phỏng</span>{% endif %} · {{ lan.SoDong|so }} ngày dữ liệu ({{ lan.NgayBatDau|ngay }} → {{ lan.NgayKetThuc|ngay }})
+        · <b>Mô hình:</b> {{ pham_vi }} · tạo {{ p.ThoiGianTao|ngay(true) }}{% if p.ThoiGianKetThuc %} · xong {{ p.ThoiGianKetThuc|ngay(true) }}{% endif %}</p>
+    </div>
+  </div>
+</div>
+
+{% if du_lieu_mo_phong %}
+  <div class="thong-bao thong-bao-canh-bao" role="note">{{ icon('alert') }}<div><b>Dữ liệu mô phỏng</b> – file mẫu tygia_mau.csv là dữ liệu
+    giả lập (lệch khoảng 430 VND so với tỷ giá thực tế), chỉ để thử web, không dùng để đọc tỷ giá thật.</div></div>
+{% endif %}
+{% if p.CheDo == 'chay_thu' %}
+  <div class="bang-vang" role="note">{{ icon('alert') }}<span><b>Kết quả sơ bộ (Chạy thử)</b> – chạy đủ các bước nhưng ít lần lặp hơn
+    Chạy đầy đủ, nên con số có thể thay đổi khi chạy đầy đủ.</span></div>
+{% endif %}
+{% if kq and kq.legacy_selection %}
+  <div class="thong-bao thong-bao-canh-bao" role="note">{{ icon('alert') }}<div><b>Phiên chạy bằng phiên bản cũ:</b> khi đó ARIMA được dùng
+    làm mô hình dự báo chính. Phiên bản hiện tại chỉ dùng ARIMA để so sánh và chọn trong ANN, Random Forest, XGBoost – hãy chạy lại
+    để có dự báo theo cách mới. Số liệu cũ được giữ nguyên để tra cứu.</div></div>
+{% endif %}
+{% if not (cfg.models == MODELS and cfg.variants == VARIANTS) %}
+  <div class="thong-bao thong-bao-canh-bao">{{ icon('info') }}<div>Phiên này chỉ chạy một phần mô hình – một số phần so sánh sẽ không có.</div></div>
+{% endif %}
+
+{% if p.TrangThai != 'xong' %}
+{# ============================================================ TIẾN TRÌNH #}
+<section class="the" aria-labelledby="td-tien-trinh">
+  <div class="the-dau">
+    <div>
+      <span class="nhan-muc">{{ icon('cpu', 'nho') }}{{ MODE_NAMES[p.CheDo] }} · {{ pham_vi }}</span>
+      <h2 id="td-tien-trinh">Tiến trình chạy</h2>
+    </div>
+    {% if p.TrangThai in ('uoc_tinh', 'cho_xac_nhan', 'cho', 'dang_chay') and (la_quan_tri or (not chi_xem and p.Id in phien_cua_toi)) %}
+      <form method="post" action="{{ url_for('huy', pid=p.Id) }}" onsubmit="return confirm('Hủy phiên #{{ p.Id }}?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="nut nut-vien" type="submit">{{ icon('x') }}Hủy</button>
+      </form>
+    {% endif %}
+  </div>
+
+  {% if p.TrangThai == 'uoc_tinh' %}
+    <div class="thong-bao thong-bao-info">{{ icon('loader', 'quay') }}<div>Đang ước tính thời gian: đo một lần huấn luyện mỗi mô hình
+      trên dữ liệu của bạn rồi nhân với số lần cần chạy...</div></div>
+  {% elif p.TrangThai == 'cho_xac_nhan' %}
+    <div class="thong-bao thong-bao-canh-bao">{{ icon('clock') }}
+      <div><b>Thời gian ước tính: khoảng {{ p.UocTinhGiay|thoi_luong }}</b> ({{ uoc_tinh.cores }} lõi CPU).
+        Máy chạy web phải bật trong suốt thời gian này; nếu bị gián đoạn có thể bấm "Chạy tiếp".
+        {% if uoc_tinh %}<br><small class="muted">Chi tiết: {% for k, v in uoc_tinh.phases.items() %}{{ {'arima':'ARIMA','tier1':'Mô hình mặc định','GA':'Tối ưu GA','SA':'Tối ưu SA','tier3':'Đánh giá trên phần kiểm tra','refit':'Huấn luyện lại và dự báo'}[k] }} ~{{ v|thoi_luong }}{{ ' · ' if not loop.last }}{% endfor %}</small>{% endif %}</div>
+    </div>
+    {% if la_quan_tri or (not chi_xem and p.Id in phien_cua_toi) %}
+    <form method="post" action="{{ url_for('xac_nhan', pid=p.Id) }}" style="margin-top: 12px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="nut nut-chinh" type="submit">{{ icon('check') }}Xác nhận chạy đầy đủ</button>
+    </form>
+    {% else %}<p class="muted" style="margin-top:12px">Đang chờ người tạo phiên xác nhận.</p>{% endif %}
+  {% elif p.TrangThai == 'loi' %}
+    <div class="thong-bao thong-bao-loi" role="alert">{{ icon('x') }}<div><b>Phiên bị dừng.</b>
+      {{ (p.Loi or '').split('\n\n')[0] }}</div></div>
+  {% elif p.TrangThai == 'huy' %}
+    <div class="thong-bao thong-bao-canh-bao">{{ icon('x') }}<div>{{ p.Loi or 'Đã hủy.' }}</div></div>
+  {% endif %}
+  {% if duoc_chay_tiep %}
+    <form method="post" action="{{ url_for('chay_tiep', pid=p.Id) }}" style="margin-top:12px">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="nut nut-chinh" type="submit">{{ icon('refresh') }}Chạy tiếp</button>
+      <small class="muted">{% if co_tien_do_luu %}Dùng lại các phần đã xong, chỉ chạy phần còn thiếu – kết quả giống hệt khi chạy một mạch.
+        {% else %}Chưa có phần nào được lưu – sẽ chạy lại từ đầu.{% endif %}</small>
+    </form>
+  {% endif %}
+
+  {% if p.TrangThai in ('cho', 'dang_chay', 'uoc_tinh') or tien_do %}
+    <div class="tong-tien-do">
+      <div class="thanh-tien-do" role="progressbar" aria-label="Tiến độ tổng" aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="{{ p.PhanTram|round|int }}" id="thanh-ngoai"><div id="thanh" style="width: {{ p.PhanTram }}%"></div></div>
+      <div class="tong-so"><b id="phan-tram">{{ p.PhanTram|round(1) }}%</b>
+        <span>Đã chạy <b id="da-chay">—</b></span>
+        <span>Còn lại ước tính <b id="con-lai">{{ p.UocTinhGiay|thoi_luong if p.UocTinhGiay else '—' }}</b></span>
+        {% if p.UocTinhGiay %}<span>Ước tính trước khi chạy <b>{{ p.UocTinhGiay|thoi_luong }}</b>{% if uoc_tinh %} ({{ uoc_tinh.cores }} lõi){% endif %}</span>{% endif %}</div>
+    </div>
+  {% endif %}
+  <ol class="stepper" id="stepper" aria-live="polite"></ol>
+  <details style="margin-top: 8px">
+    <summary>{{ icon('chevron') }}{{ MODE_NAMES[p.CheDo] }} gồm những bước nào?</summary>
+    {{ cac_buoc(CFG_CHE_DO[p.CheDo]) }}
+  </details>
+  <details style="margin-top: 8px">
+    <summary>{{ icon('chevron') }}Nhật ký</summary>
+    <pre class="nhat-ky" id="nhat-ky">{{ (tien_do.log|join('\n')) if tien_do else '' }}{% if p.TrangThai == 'loi' and p.Loi %}
+
+{{ p.Loi }}{% endif %}</pre>
+  </details>
+</section>
+
+{% else %}
+{# ============================================================ KẾT QUẢ #}
+{% set t41 = kq.table_4_1 %}{% set t46 = kq.table_4_6 %}{% set ch = kq.candidates[kq.chosen_key] if kq.chosen_key else none %}
+{% set sp = kq.data.split %}
+
+<div class="luoi">
+  {# 1. Dự báo ngày tiếp theo #}
+  <section class="the c-12 the-du-bao" aria-labelledby="td-du-bao">
+    {% if t46 %}{% set ki = kq.error_interval %}
+    {% set ca = kq.outputs_335.change_abs if kq.outputs_335 else t46.get('Next_Forecast_Change_Abs', t46.Next_Forecast_Rate_Mean - t46.Latest_Observed_Rate) %}
+    <div class="the-dau"><div><span class="nhan-muc">{{ icon('activity', 'nho') }}Dự báo ngày làm việc tiếp theo</span>
+      <h2 id="td-du-bao">Tỷ giá USD/VND ngày {{ t46.Next_Forecast_Date|ngay }}</h2></div>
+      {{ nhan_canh_bao(t46.Management_Alert, lon=true) }}</div>
+    <div class="luoi">
+      <div class="c-5">
+        <div class="kpi-so" style="font-size: 44px">{{ t46.Next_Forecast_Rate_Mean|so(2) }} <small class="muted" style="font-size:16px">VND</small></div>
+        <p class="kpi-phu">{{ '+' if ca > 0 }}{{ ca|so(2) }} VND ({{ t46.Next_Forecast_Change_Percent_Mean|pt(4) }}) so với
+          {{ t46.Latest_Observed_Rate|so(2) }} ngày {{ t46.Latest_Observed_Date|ngay }}</p>
+        <p class="kpi-phu">{% if t46.Management_Alert == 'Ổn định' %}Thay đổi dự báo nhỏ hơn ngưỡng {{ kq.settings.alert_watch_pct|so(2) }}% nên được
+          xếp là "Ổn định".{% elif t46.Management_Alert in ('Tăng', 'Giảm') %}Thay đổi dự báo từ ngưỡng {{ kq.settings.alert_watch_pct|so(2) }}% trở lên
+          nên web báo "{{ t46.Management_Alert }}".{% endif %}</p>
+      </div>
+      <dl class="muc-thong-tin c-7" style="margin:0">
+        <div><dt>Khoảng thường gặp</dt><dd>{{ ki.lo|so(0) }} – {{ ki.hi|so(0) }}</dd></div>
+        <div><dt>Mô hình dùng để dự báo</dt><dd style="font-family: var(--font-ui); font-weight:600">{{ ten_mh(ch.label) }}</dd></div>
+        <div><dt>Sai số trung bình (RMSE)</dt><dd>{{ t46.Chosen_Mean_RMSE|so(2) }} VND</dd></div>
+        <div><dt>Sai số tuyệt đối trung bình (MAE)</dt><dd>{{ t46.Chosen_Mean_MAE|so(2) }} VND</dd></div>
+        <div><dt>Sai số phần trăm (MAPE)</dt><dd>{{ t46.Chosen_Mean_MAPE_Percent|so(4) }}%</dd></div>
+        <div><dt>Số lần huấn luyện để dự báo</dt><dd>{{ ch.t1.n_seeds }} lần (dao động {{ t46.Next_Forecast_P05|so(2) }} – {{ t46.Next_Forecast_P95|so(2) }})</dd></div>
+      </dl>
+    </div>
+    <p class="ghi-chu">{{ icon('info') }}<span><b>Đọc kết quả:</b> sai số được đo trên {{ sp.n_test }} ngày cuối của dữ liệu (phần mô hình không
+      được học). "Khoảng thường gặp" = dự báo ± 1,96 × RMSE, tức mức lệch mà dự báo hay gặp trong quá khứ. "Dao động" là chênh lệch giữa các
+      lần huấn luyện, không phải độ bất định của tỷ giá. Đây là dự báo thống kê từ lịch sử tỷ giá, không phải lời khuyên đầu tư.</span></p>
+    {% else %}
+    <div class="the-dau"><div><span class="nhan-muc">Dự báo ngày làm việc tiếp theo</span><h2 id="td-du-bao">Chưa có dự báo chính</h2></div></div>
+    <p class="muted">Phiên này chỉ chạy ARIMA (mô hình dùng để so sánh). Hãy chạy thêm với ít nhất một trong ANN, Random Forest, XGBoost
+      để có dự báo chính. Dự báo của ARIMA vẫn xem được ở phần "Dự báo so với thực tế" bên dưới.</p>
+    {% endif %}
+  </section>
+
+  {# 2. Dự báo so với thực tế #}
+  <section class="the c-12" aria-labelledby="td-so-sanh">
+    <div class="the-dau"><div><span class="nhan-muc">Phần kiểm tra · {{ sp.test_start }} → {{ sp.test_end }} ({{ sp.n_test }} ngày)</span>
+      <h2 id="td-so-sanh">Dự báo so với thực tế</h2></div></div>
+    <p class="muted" style="margin-bottom:12px">Mỗi ngày trong phần kiểm tra, mô hình dự báo tỷ giá ngày hôm sau chỉ từ dữ liệu đến hôm đó,
+      rồi so với tỷ giá thật. Chọn từng mô hình để xem riêng.</p>
+    <div class="tabs" role="tablist" aria-label="Mô hình">
+      <button role="tab" type="button" data-tab="tat-ca" aria-selected="true">Tất cả</button>
+      {% for k in kq.ranking %}<button role="tab" type="button" data-tab="{{ k }}" aria-selected="false">{{ ten_uv(k) }}{{ ' (so sánh)' if k == 'ARIMA' }}{{ ' ★' if k == kq.chosen_key }}</button>{% endfor %}
+    </div>
+    <div id="tab-noi-dung"></div>
+  </section>
+
+  {# 3. Xếp hạng mô hình #}
+  <section class="the c-12" aria-labelledby="td-chon">
+    <div class="the-dau"><div><span class="nhan-muc">Mô hình có sai số RMSE trung bình thấp nhất được chọn</span>
+      <h2 id="td-chon">Xếp hạng các mô hình</h2></div></div>
+    <div class="cuon-ngang"><table class="bang">
+      <thead><tr><th class="so">Hạng</th><th>Mô hình</th><th class="so">RMSE trung bình</th><th class="so">Độ dao động RMSE</th>
+        <th class="so">Số lần đánh giá</th><th class="so">Thời gian tính</th></tr></thead>
+      <tbody>
+      {% for r in kq.selection %}
+        <tr class="{{ 'dong-chon' if r.key == kq.chosen_key }}"><td class="so">{{ loop.index }}</td>
+          <td class="tieu-de-o">{{ ten_mh(r.label) }}{{ ' ★ được chọn' if r.key == kq.chosen_key }}</td>
+          <td class="so so-lieu"><b>{{ r.RMSE|so(2) }}</b></td><td class="so so-lieu">± {{ r.SD_RMSE|so(2) }}</td>
+          <td class="so">{{ r.n_runs }}</td>
+          <td class="so">{{ r.cost_seconds|thoi_luong if r.cost_seconds is not none else '—' }}</td></tr>
+      {% endfor %}
+      {% if kq.candidates.ARIMA %}{% set a = kq.candidates.ARIMA %}
+        <tr class="dong-rw"><td class="so">—</td><td>{{ a.label }} – chỉ để so sánh</td><td class="so so-lieu">{{ a.summary.RMSE|so(2) }}</td>
+          <td class="so">—</td><td class="so">—</td>
+          <td class="so">{{ a.cost_seconds|thoi_luong if a.cost_seconds is defined and a.cost_seconds is not none else '—' }}</td></tr>
+      {% endif %}
+        <tr class="dong-rw"><td class="so">—</td><td>Giữ nguyên giá hôm trước – chỉ để so sánh</td>
+          <td class="so so-lieu">{{ kq.random_walk.RMSE|so(2) }}</td><td class="so">—</td><td class="so">—</td><td class="so">—</td></tr>
+      </tbody>
+    </table></div>
+    {% if not kq.selection %}<p class="muted khong-chay">Không có mô hình học máy trong phiên này.</p>{% endif %}
+    <p class="ghi-chu">{{ icon('info') }}<span><b>RMSE</b>: sai số trung bình (VND), phạt nặng các ngày lệch nhiều – càng nhỏ càng tốt.
+      <b>Độ dao động</b>: RMSE thay đổi bao nhiêu giữa các lần chạy – càng nhỏ càng ổn định.
+      <b>Giữ nguyên giá hôm trước</b> là cách dự báo đơn giản nhất (ngày mai bằng hôm nay); một mô hình tốt nên có sai số gần hoặc thấp hơn mức này.
+      "Mặc định" là cấu hình định sẵn; "tối ưu bằng GA / SA" là cấu hình do thuật toán di truyền / mô phỏng luyện kim tìm ra.</span></p>
+  </section>
+
+  {# 4. Hiệu quả tối ưu cấu hình #}
+  <section class="the c-12">
+    <div class="the-dau"><div><span class="nhan-muc">So sánh cấu hình mặc định với cấu hình do GA và SA tìm ra</span>
+      <h2>Tối ưu cấu hình giúp giảm sai số bao nhiêu?</h2></div></div>
+    {% if kq.table_4_5 %}
+    <div class="cuon-ngang"><table class="bang">
+      <thead><tr><th>Mô hình</th><th>Sai số</th><th class="so">Mặc định</th><th class="so">Sau tối ưu SA</th>
+        <th class="so">Sau tối ưu GA</th><th class="so">SA giảm</th><th class="so">GA giảm</th></tr></thead>
+      <tbody>{% for r in kq.table_4_5 %}{% set nd = 4 if r.metric == 'MAPE' else 2 %}
+        <tr class="{{ 'dau-nhom' if loop.first or kq.table_4_5[loop.index0 - 1].model != r.model }}">
+          <td class="tieu-de-o">{{ MODEL_NAMES[r.model] if loop.first or kq.table_4_5[loop.index0 - 1].model != r.model }}</td>
+          <td>{{ r.metric }}{{ ' (%)' if r.metric == 'MAPE' }}</td>
+          <td class="so so-lieu">{{ o_so(r.before, nd) }}</td><td class="so so-lieu">{{ o_so(r.after_sa, nd) }}</td>
+          <td class="so so-lieu">{{ o_so(r.after_ga, nd) }}</td>
+          <td class="so so-lieu {{ 'duong' if r.impr_sa and r.impr_sa > 0 else ('am' if r.impr_sa and r.impr_sa < 0) }}">{{ r.impr_sa|pt(2) }}</td>
+          <td class="so so-lieu {{ 'duong' if r.impr_ga and r.impr_ga > 0 else ('am' if r.impr_ga and r.impr_ga < 0) }}">{{ r.impr_ga|pt(2) }}</td>
+        </tr>{% endfor %}</tbody>
+    </table></div>
+    <p class="ghi-chu">{{ icon('info') }}<span>"Giảm" = 100 × (mặc định − sau tối ưu) / mặc định; số dương là sai số giảm. GA và SA tìm cấu hình
+      để RMSE nhỏ nhất. Mỗi ô là trung bình qua {{ kq.settings.n_test_seeds_baseline }} lần chạy (cột mặc định) và
+      {{ kq.settings.n_hpo_runs }} lần tối ưu × {{ kq.settings.n_eval_seeds_per_config }} lần đánh giá (cột sau tối ưu).</span></p>
+    {% else %}<p class="muted khong-chay">Phiên này không chạy GA hoặc SA.</p>{% endif %}
+  </section>
+
+  {# 5. Biến động thực tế trong quá khứ #}
+  {% set ac = kq.alert_check %}
+  <section class="the c-12" aria-labelledby="td-nguong">
+    <div class="the-dau"><div><span class="nhan-muc">Ngưỡng Ổn định đang dùng: thay đổi dưới {{ ac.threshold_pct|so(2) }}%</span>
+      <h2 id="td-nguong">Tỷ giá thật đã biến động thế nào?</h2></div></div>
+    <p class="muted" style="margin-bottom:12px">Mức thay đổi so với hôm trước của {{ ac.n_days }} ngày trong phần kiểm tra
+      ({{ sp.test_start }} → {{ sp.test_end }}), xếp theo cùng ngưỡng với cảnh báo – giúp bạn chọn ngưỡng phù hợp.</p>
+    <div class="luoi">
+      <div class="c-6"><div class="cuon-ngang"><table class="bang">
+        <thead><tr><th>Mức thay đổi trong ngày</th><th class="so">Nhỏ nhất</th><th class="so">Trung vị</th><th class="so">90% ngày dưới</th>
+          <th class="so">95% ngày dưới</th><th class="so">Lớn nhất</th></tr></thead>
+        <tbody><tr><td>Phần kiểm tra</td>{% for k in ('min', 'median', 'p90', 'p95', 'max') %}<td class="so so-lieu">{{ ac.dist[k]|so(3) }}%</td>{% endfor %}</tr></tbody>
+      </table></div></div>
+      <div class="c-6"><div class="cuon-ngang"><table class="bang">
+        <thead><tr><th>Mức</th><th class="so">Số ngày</th><th class="so">Tỷ lệ</th></tr></thead>
+        <tbody>{% for k in ('Tăng', 'Giảm', 'Ổn định') %}
+          <tr><td>{{ nhan_canh_bao(k) }}</td><td class="so so-lieu">{{ ac.count[k] }}</td><td class="so so-lieu">{{ ac.share_pct[k]|so(1) }}%</td></tr>
+        {% endfor %}</tbody>
+      </table></div></div>
+    </div>
+    {% if ac.mostly_stable %}<p class="ghi-chu">{{ icon('info') }}<span>Hơn 95% ngày đều "Ổn định" – ngưỡng hiện tại có thể quá rộng với dữ liệu
+      này; bạn có thể đặt ngưỡng nhỏ hơn khi chạy phiên mới.</span></p>{% endif %}
+  </section>
+
+  {# 6. Theo dõi độ chính xác theo thời gian #}
+  <section class="the c-12" id="du-bao-truoc-day">
+    <div class="the-dau"><div><span class="nhan-muc">So dự báo của các lần chạy trước với tỷ giá thật</span><h2>Theo dõi độ chính xác theo thời gian</h2></div>
+      {% if duoc_backtest %}
+      <form method="post" action="{{ url_for('tao_backtest', pid=p.Id) }}"
+            onsubmit="return confirm('Tạo lịch sử dự báo giả lập cho {{ so_ngay_backtest }} ngày cuối bằng mô hình được chọn?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="nut nut-vien nut-nho" type="submit">{{ icon('refresh') }}Tạo lịch sử dự báo giả lập ({{ so_ngay_backtest }} ngày)</button>
+      </form>
+      {% endif %}</div>
+    {% set bt = p.BacktestTrangThai %}
+    {% if bt in ('cho', 'dang_chay') %}
+      <div class="thong-bao thong-bao-info" id="dang-backtest">{{ icon('loader', 'quay') }}<div>{{ 'Đang chờ đến lượt' if bt == 'cho' else 'Đang tạo' }}
+        lịch sử dự báo giả lập cho {{ so_ngay_backtest }} ngày cuối (mỗi ngày huấn luyện lại mô hình bằng dữ liệu đến hôm trước rồi dự báo)...</div></div>
+    {% elif bt and bt.startswith('loi') %}
+      <div class="thong-bao thong-bao-loi">{{ icon('x') }}<div>Tạo lịch sử giả lập bị lỗi: {{ bt[4:] }}</div></div>
+    {% endif %}
+    {% if truoc_day %}
+      <div class="cuon-ngang cuon-doc"><table class="bang">
+        <thead><tr><th>Ngày được dự báo</th><th>Loại</th><th>Phiên</th><th>Chế độ</th><th>Mô hình khi đó</th><th class="so">Dự báo</th>
+          <th class="so">Thực tế</th><th class="so">Lệch</th><th class="so">Lệch %</th><th>Cảnh báo khi đó</th></tr></thead>
+        <tbody>{% for r in truoc_day %}
+          <tr class="{{ 'dong-rw' if r.Backtest }}"><td>{{ r.NgayDuBao|ngay }}</td>
+            <td>{% if r.Backtest %}<span class="nhan tt-dang_cho">Giả lập</span>{% else %}<span class="nhan tt-xong">Thật</span>{% endif %}</td>
+            <td><a href="{{ url_for('xem_nckh', pid=r.Id) if r.Loai == 'nckh' else url_for('xem_phien', phien_id=r.Id) }}">#{{ r.Id }}</a></td>
+            <td>{{ MODE_NAMES.get(r.CheDo, 'Bản cũ') }}</td>
+            <td>{{ MODEL_NAMES.get(r.MoHinhChon, r.MoHinhChon) }}{{ ' – ' ~ r.BienTheChon if r.BienTheChon and r.BienTheChon != '—' }}</td>
+            <td class="so so-lieu">{{ r.DuBaoT1|so(2) }}</td><td class="so so-lieu">{{ r.ThucTe|so(2) }}</td>
+            <td class="so so-lieu">{{ r.SaiLech|so(2) }}</td><td class="so so-lieu">{{ r.SaiLechPct|pt(4) }}</td>
+            <td>{{ nhan_canh_bao(r.CanhBao) }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+      {% if co_backtest %}
+        <p class="ghi-chu">{{ icon('info') }}<span><b>Giả lập</b>: với mỗi ngày trong {{ so_ngay_backtest }} ngày cuối, mô hình được chọn học lại
+          bằng dữ liệu đến hôm trước rồi dự báo ngày đó – không phải dự báo đã thực sự đưa ra trước đây.</span></p>
+        <form method="get" action="{{ url_for('xem_nckh', pid=p.Id) }}#du-bao-truoc-day" style="margin-top:8px">
+          <label class="o-chon"><input type="checkbox" name="tinh_backtest" value="1" {{ 'checked' if tinh_backtest }}
+            onchange="this.form.submit()"> Tính cả dự báo giả lập khi đánh giá</label>
+        </form>
+      {% endif %}
+    {% else %}
+      <p class="muted">Chưa có dự báo nào trước đây rơi vào khoảng ngày của dữ liệu này. Khi bạn tải file mới có chứa những ngày đã từng được
+        dự báo, bảng so sánh sẽ hiện ở đây.{% if duoc_backtest %} Bạn cũng có thể bấm "Tạo lịch sử dự báo giả lập" để xem ngay.{% endif %}</p>
+    {% endif %}
+    {% if phan_hoi and phan_hoi.n %}
+      <div class="thong-bao {{ 'thong-bao-canh-bao' if phan_hoi.level != 'stable' else 'thong-bao-info' }}" style="margin-top:12px">{{ icon('activity') }}
+        <div><b>Sai số {{ COMMON.monitor_window }} lần dự báo gần nhất ({{ phan_hoi.n }} dự báo
+          {{ 'gồm cả giả lập' if tinh_backtest else 'thật' }}):</b>
+          MAE {{ phan_hoi.latest.MAE|so(2) }} · RMSE {{ phan_hoi.latest.RMSE|so(2) }} · MAPE {{ phan_hoi.latest.MAPE|so(4) }}%
+          (RMSE lúc kiểm tra {{ (phan_hoi.limit / COMMON.monitor_factor)|so(2) }}). <b>{{ phan_hoi.status }}</b>.
+          <br><small class="muted">Sai số không tăng: giữ mô hình. Tăng nhẹ: huấn luyện lại với cấu hình hiện tại. Vượt
+          {{ COMMON.monitor_factor|so(2) }} lần RMSE lúc kiểm tra trong {{ COMMON.monitor_consecutive }} lần liên tiếp: chạy lại GA và SA để tìm cấu hình mới.</small></div></div>
+    {% elif co_backtest %}
+      <p class="muted" style="margin-top:12px">Chưa có dự báo thật nào để đánh giá (dự báo giả lập chỉ được tính khi bật tùy chọn ở trên).</p>
+    {% endif %}
+  </section>
+
+  {# 7. Cách web tạo ra dự báo này #}
+  <section class="the c-12" aria-labelledby="td-cach-lam">
+    <div class="the-dau"><div><span class="nhan-muc">{{ MODE_NAMES[p.CheDo] }} · chạy hết {{ kq.elapsed_seconds|thoi_luong }}</span>
+      <h2 id="td-cach-lam">Cách web tạo ra dự báo này</h2></div></div>
+    {{ cac_buoc(kq.settings) }}
+    <details style="margin-top:8px"><summary>{{ icon('chevron') }}Bảng thông số chi tiết của hai chế độ</summary>
+      {{ bang_thiet_lap(p.CheDo, khong_gian) }}</details>
+  </section>
+
+  {# 8. Chi tiết kỹ thuật #}
+  <section class="the c-12" aria-labelledby="td-ky-thuat">
+    <div class="the-dau"><div><span class="nhan-muc">Dành cho người muốn xem sâu</span><h2 id="td-ky-thuat">Chi tiết kỹ thuật</h2></div>
+      <a class="nut nut-vien nut-nho" href="{{ url_for('tai_json', pid=p.Id) }}">{{ icon('download') }}Tải toàn bộ kết quả (JSON)</a></div>
+
+    <details><summary>{{ icon('chevron') }}Thống kê dữ liệu</summary>
+      <div class="cuon-ngang"><table class="bang bang-gon">
+        <tr><td>Số ngày dữ liệu</td><td class="so so-lieu">{{ t41.n_obs|so }} ({{ t41.start_date|ngay }} → {{ t41.end_date|ngay }})</td></tr>
+        <tr><td>Tỷ giá đầu kỳ / cuối kỳ</td><td class="so so-lieu">{{ t41.first|so(0) }} / {{ t41.last|so(0) }}</td></tr>
+        <tr><td>Thấp nhất / cao nhất</td><td class="so so-lieu">{{ t41.min|so(0) }} / {{ t41.max|so(0) }} (cao nhất ngày {{ t41.max_date|ngay }})</td></tr>
+        <tr><td>Trung bình / trung vị / độ lệch chuẩn</td><td class="so so-lieu">{{ t41.mean|so(0) }} / {{ t41.median|so(0) }} / {{ t41.std|so(0) }}</td></tr>
+        <tr><td>Tăng cả giai đoạn</td><td class="so so-lieu">{{ t41.change_abs|so(0) }} VND ({{ t41.change_pct|so(2) }}%)</td></tr>
+        <tr><td>VND mất giá so với USD (1 − đầu kỳ/cuối kỳ)</td><td class="so so-lieu">{{ t41.vnd_depreciation_pct|so(2) }}%</td></tr>
+        {% if t41.flat_days is defined %}
+        <tr><td>Số ngày tỷ giá không đổi so với hôm trước</td><td class="so so-lieu">{{ t41.flat_days|so }} ngày ({{ t41.flat_days_pct|so(2) }}%)</td></tr>
+        {% endif %}
+      </table></div>
+      <p class="ghi-chu">Nhiều ngày tỷ giá đứng yên (thường vào kỳ nghỉ) làm sai số trông nhỏ hơn thực tế. Dữ liệu từ Yahoo Finance (VND=X)
+        là tỷ giá thị trường, có thể khác tỷ giá niêm yết của ngân hàng.</p>
+    </details>
+
+    <details><summary>{{ icon('chevron') }}Kiểm tra tính dừng (ADF, Phillips–Perron)</summary>
+      {% set t42 = {} %}{% for r in kq.table_4_2 %}{% set _ = t42.update({(r.series, r.test, r.trend): r}) %}{% endfor %}
+      <div class="cuon-ngang"><table class="bang">
+        <thead><tr><th rowspan="2">Chuỗi</th><th colspan="2" class="so">ADF</th><th colspan="2" class="so">Phillips–Perron</th></tr>
+          <tr><th class="so">Có hằng số</th><th class="so">Có hằng số và xu hướng</th><th class="so">Có hằng số</th><th class="so">Có hằng số và xu hướng</th></tr></thead>
+        <tbody>{% for sr, ten in (('EXR', 'Tỷ giá'), ('D.EXR', 'Mức thay đổi hằng ngày')) %}
+          <tr><td>{{ ten }}</td>{% for t in ('ADF', 'PP') %}{% for tr in ('c', 'ct') %}{% set r = t42[(sr, t, tr)] %}
+            <td class="so so-lieu">{{ r.stat|so(2) }}<sup>{{ r.mark }}</sup><br><small class="muted">p = {{ r.pvalue|pval }}</small></td>{% endfor %}{% endfor %}</tr>
+        {% endfor %}</tbody>
+      </table></div>
+      <p class="ghi-chu"><sup>a</sup>, <sup>b</sup>, <sup>c</sup>: có ý nghĩa ở mức 1%, 5%, 10%. <b>{{ kq.table_4_2_conclusion.text }}</b>
+        Vì vậy các mô hình học máy dự báo mức thay đổi hằng ngày rồi cộng vào tỷ giá hôm nay để ra tỷ giá ngày mai.</p>
+    </details>
+
+    <details><summary>{{ icon('chevron') }}ARIMA: 3 cấu trúc tốt nhất</summary>
+      {% if kq.table_4_3 %}{% set t43 = kq.table_4_3 %}
+      <div class="cuon-ngang"><table class="bang">
+        <thead><tr><th>Chỉ tiêu</th>{% for r in t43 %}<th class="so {{ 'cot-chon' if loop.first }}">{{ 'Được chọn' if loop.first else 'Hạng ' ~ loop.index }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          <tr><td>Cấu trúc (p, d, q)</td>{% for r in t43 %}<td class="so so-lieu"><b>({{ r.order|join(', ') }})</b></td>{% endfor %}</tr>
+          <tr><td>Số ngày dùng ước lượng</td>{% for r in t43 %}<td class="so so-lieu">{{ r.nobs }} ({{ r.dev_start }} → {{ r.dev_end }})</td>{% endfor %}</tr>
+          <tr><td>Log likelihood</td>{% for r in t43 %}<td class="so so-lieu">{{ r.llf|so(2) }}</td>{% endfor %}</tr>
+          <tr><td>AIC</td>{% for r in t43 %}<td class="so so-lieu">{{ r.aic|so(2) }}</td>{% endfor %}</tr>
+          <tr><td>BIC</td>{% for r in t43 %}<td class="so so-lieu">{{ r.bic|so(2) }}</td>{% endfor %}</tr>
+          <tr><td>HQIC</td>{% for r in t43 %}<td class="so so-lieu">{{ r.hqic|so(2) }}</td>{% endfor %}</tr>
+        </tbody>
+      </table></div>
+      <p class="ghi-chu">Thử 25 cấu trúc (p, q từ 0 đến 4), chọn cấu trúc có AIC thấp nhất. Biểu đồ kèm khoảng dự báo 95% xem ở tab ARIMA phía trên.</p>
+      {% else %}<p class="muted">Phiên này không chạy ARIMA.</p>{% endif %}
+    </details>
+
+    <details><summary>{{ icon('chevron') }}Mô hình cấu hình mặc định (học trên phần đầu, kiểm tra trên phần cuối)</summary>
+      {% if kq.table_4_4 %}
+      <div class="cuon-ngang"><table class="bang">
+        <thead><tr><th>Mô hình</th><th class="so">Số lần chạy</th><th class="so">MAE</th><th class="so">RMSE</th><th class="so">MAPE (%)</th>
+          <th class="so">Sai số TB</th><th class="so">Độ lệch chuẩn sai số</th><th class="so">Dao động RMSE</th></tr></thead>
+        <tbody>{% for r in kq.table_4_4 %}
+          <tr><td class="tieu-de-o">{{ MODEL_NAMES[r.model] }}</td><td class="so">{{ r.n_runs }}</td>
+            <td class="so so-lieu">{{ o_so(r.MAE, 2) }}</td><td class="so so-lieu"><b>{{ o_so(r.RMSE, 2) }}</b></td>
+            <td class="so so-lieu">{{ o_so(r.MAPE, 4) }}</td><td class="so so-lieu">{{ o_so(r.MeanErr, 2) }}</td>
+            <td class="so so-lieu">{{ o_so(r.SdErr, 2) }}</td><td class="so so-lieu">± {{ o_so(r.SD_RMSE, 3) }}</td></tr>
+        {% endfor %}{% set rw = kq.random_walk %}
+          <tr class="dong-rw"><td>Giữ nguyên giá hôm trước</td><td class="so">—</td><td class="so so-lieu">{{ rw.MAE|so(2) }}</td>
+            <td class="so so-lieu">{{ rw.RMSE|so(2) }}</td><td class="so so-lieu">{{ rw.MAPE|so(4) }}</td>
+            <td class="so so-lieu">{{ rw.MeanErr|so(2) }}</td><td class="so so-lieu">{{ rw.SdErr|so(2) }}</td><td class="so">—</td></tr>
+        </tbody>
+      </table></div>
+      <p class="ghi-chu">Sai số TB = trung bình (thực tế − dự báo): dương nghĩa là dự báo thường thấp hơn thực tế.</p>
+      {% else %}<p class="muted">Phiên này không chạy cấu hình mặc định.</p>{% endif %}
+    </details>
+
+    {% if kq.hpo_runs %}
+    <details><summary>{{ icon('chevron') }}Các lần chạy GA / SA ({{ kq.hpo_runs|length }})</summary>
+      <p class="ghi-chu">Mỗi lần chạy chấm điểm cấu hình bằng RMSE trung bình trên {{ sp.folds|length }} giai đoạn lịch sử (không dùng phần kiểm tra).
+        Cấu hình được giữ lại là cấu hình có điểm thấp nhất; nếu nhiều cấu hình gần bằng nhau (chênh dưới
+        {{ (kq.settings.config_tie_tolerance * 100)|so(1) }}%) thì chọn cấu hình có sai số ổn định nhất giữa các giai đoạn.
+        {% if kq.hpo_parity %}{% for x in kq.hpo_parity if x.applicable %}{% if loop.first %}GA và SA dùng cùng phạm vi tìm kiếm, cùng giai đoạn chấm điểm
+        và cùng số cấu hình tối đa:{% endif %} {{ MODEL_NAMES[x.model] }} {{ '✓' if x.ok else '✗' }}{{ ',' if not loop.last else '.' }}{% endfor %}{% endif %}</p>
+      <div class="cuon-ngang cuon-doc"><table class="bang">
+        <thead><tr><th>Thuật toán</th><th>Mô hình</th><th class="so">Lần chạy</th><th class="so">Điểm (RMSE)</th>
+          <th class="so">Số cấu hình đã thử</th><th>Lý do dừng</th><th class="so">Thời gian</th><th>Cấu hình tốt nhất</th></tr></thead>
+        <tbody>{% for r in kq.hpo_runs %}<tr><td>{{ r.algo }}</td><td>{{ MODEL_NAMES[r.model] }}</td><td class="so">{{ r.run }}</td>
+          <td class="so so-lieu">{{ r.J|so(3) }}</td><td class="so">{{ r.n_evals }}</td>
+          <td class="muted">{{ r.stop_reason }}</td><td class="so">{{ r.seconds|so(1) }} s</td>
+          <td class="o-tham-so">{% for k, v in r.params.items() %}{{ k }}={{ v }}{{ ', ' if not loop.last }}{% endfor %}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    </details>
+    {% endif %}
+
+    <details><summary>{{ icon('chevron') }}Chia dữ liệu và nhật ký làm sạch</summary>
+      <dl class="muc-thong-tin" style="margin:0">
+        <div><dt>Xây dựng / kiểm tra</dt><dd>{{ sp.n_dev }} / {{ sp.n_test }} ngày</dd></div>
+        <div><dt>Bắt đầu phần kiểm tra</dt><dd>{{ sp.test_start }}</dd></div>
+        <div><dt>Các giai đoạn chấm điểm (học / kiểm)</dt><dd style="font-size:13px">{% for f in sp.folds %}{{ f.train }}/{{ f.val }}{{ ' · ' if not loop.last }}{% endfor %}</dd></div>
+      </dl>
+      <ul class="danh-sach">{% for l in kq.data.clean_log %}<li>{{ l|replace('[WEB: ngưỡng do web chọn, bài không quy định]', '') }}</li>{% endfor %}</ul>
+    </details>
+  </section>
+</div>
+{% endif %}
+
+{# ============================================================ CHẠY THÊM #}
+{% if p.TrangThai in ('xong', 'loi', 'huy') and not chi_xem %}
+<section class="the" aria-labelledby="td-chay-them">
+  <div class="the-dau"><div><span class="nhan-muc">{{ icon('refresh', 'nho') }}Cùng dữ liệu {{ lan.TenFile }}</span>
+    <h2 id="td-chay-them">Chạy thêm một phiên</h2></div></div>
+  <form class="form-chay" method="post" action="{{ url_for('chay_lai', lan_id=lan.Id) }}">
+    {% with nut_gui = "Chạy" %}{% include "_form_chay.html" %}{% endwith %}
+  </form>
+  {% if phien_khac %}
+    <p class="muted" style="margin-top:12px">Các phiên khác trên dữ liệu này:
+      {% for x in phien_khac %}<a href="{{ url_for('xem_nckh', pid=x.Id) }}">#{{ x.Id }}</a> ({{ MODE_NAMES[x.CheDo] }}){{ ', ' if not loop.last }}{% endfor %}</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+
+{% block script %}
+<script>
+  const TEN_TT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", loi: "Lỗi", bo_qua: "Bỏ qua", huy: "Đã hủy" };
+  const ICON_TT = { cho: "clock", dang_chay: "loader", xong: "check", loi: "x", bo_qua: "flat", huy: "x" };
+  const LOP_TT = { cho: "", dang_chay: "tt-dang_chay", xong: "tt-xong", loi: "tt-loi", bo_qua: "", huy: "tt-loi" };
+  const thoiLuong = s => s == null ? "—" : s < 90 ? Math.round(s) + " giây" : s < 5400 ? Math.round(s / 60) + " phút"
+                                     : (s / 3600).toFixed(1).replace(".", ",") + " giờ";
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  function veStepper(steps) {
+    const ol = document.getElementById("stepper");
+    if (!ol) return;
+    ol.innerHTML = steps.map(s => `
+      <li class="buoc buoc-${s.status}">
+        <span class="buoc-so">${s.id}</span>
+        <div class="buoc-noi-dung">
+          <div class="buoc-dau"><b>${esc(s.name)}</b>
+            <span class="nhan ${LOP_TT[s.status]}"><svg class="icon${s.status === "dang_chay" ? " quay" : ""}" aria-hidden="true"><use href="#i-${ICON_TT[s.status]}"/></svg>${TEN_TT[s.status]}</span>
+            ${s.seconds != null ? `<small class="muted">${thoiLuong(s.seconds)}</small>` : ""}</div>
+          <small class="muted">${esc(s.caption)}</small>
+          ${s.detail ? `<div class="buoc-chi-tiet">${esc(s.detail)}</div>` : ""}
+        </div>
+      </li>`).join("");
+  }
+  veStepper({{ (tien_do.steps if tien_do else buoc_mac_dinh)|tojson }});
+  if (document.getElementById("dang-backtest")) setTimeout(() => location.reload(), 5000);
+  {% if p.TrangThai in ('uoc_tinh', 'cho', 'dang_chay') %}
+  (async function capNhat() {
+    try {
+      const t = await (await fetch("{{ url_for('api_tien_do', pid=p.Id) }}")).json();
+      if (t.TrangThai !== "{{ p.TrangThai }}") return location.reload();     // đổi trạng thái -> tải lại trang
+      if (t.TienDo) {
+        veStepper(t.TienDo.steps);
+        const pct = t.TienDo.percent;
+        document.getElementById("thanh").style.width = pct + "%";
+        document.getElementById("thanh-ngoai").setAttribute("aria-valuenow", Math.round(pct));
+        document.getElementById("phan-tram").textContent = pct.toFixed(1).replace(".", ",") + "%";
+        document.getElementById("da-chay").textContent = thoiLuong(t.TienDo.elapsed);
+        document.getElementById("con-lai").textContent = thoiLuong(t.TienDo.eta);
+        const log = document.getElementById("nhat-ky");
+        const cuoi = log.scrollTop + log.clientHeight >= log.scrollHeight - 8;
+        log.textContent = t.TienDo.log.join("\n");
+        if (cuoi) log.scrollTop = log.scrollHeight;
+      }
+    } catch (e) { /* web đang bận, thử lại */ }
+    setTimeout(capNhat, 1000);
+  })();
+  {% endif %}
+</script>
+{% if kq %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='bieu_do.js') }}"></script>
+<script>
+  const KQ = {{ kq_bieu_do|tojson }};
+  const T = KQ.test, CH = KQ.chosen_key;
+  const BD = window.BieuDoSoSanh;
+  const bieuDo = {};
+  const tenMH = l => l.replace(" – Baseline", " (mặc định)").replace(" – GA", " (tối ưu GA)").replace(" – SA", " (tối ưu SA)");
+  const ten = k => k === "RW" ? "Giữ nguyên giá hôm trước" : tenMH(KQ.candidates[k].label) + (k === "ARIMA" ? " (so sánh)" : "");
+  const so = (v, nd = 2) => v == null ? "—" : v.toLocaleString("vi-VN", { minimumFractionDigits: nd, maximumFractionDigits: nd });
+  const pt = (v, nd = 2) => v == null ? "—" : (v > 0 ? "+" : "") + v.toFixed(nd).replace(".", ",") + "%";
+  // Mô hình chính (chỉ ANN/RF/XGBoost); khi chỉ chạy ARIMA thì không có -> không vẽ điểm T+1 của mô hình chính
+  const t1ChuaChon = CH ? KQ.candidates[CH].t1 : null;
+
+  function gan(id, muc) {
+    bieuDo[id] = muc;
+    document.querySelectorAll(`[data-khoang-cho="${id}"] [data-khoang]`).forEach(nut => nut.addEventListener("click", () => {
+      BD.doiKhoang(muc, nut.dataset.khoang === "all" ? T.dates.length : Number(nut.dataset.khoang));
+      nut.parentElement.querySelectorAll("[data-khoang]").forEach(b => b.setAttribute("aria-pressed", b === nut));
+    }));
+  }
+
+  // Mọi mô hình đã chạy (mô hình được chọn nét liền)
+  const tatCaSeries = KQ.ranking.map(k => ({ label: ten(k), model: KQ.candidates[k].model, values: KQ.candidates[k].pred,
+                                             chosen: k === CH, hidden: false }));
+  // ---------------------------------------------------------------- Tab "So sánh với thực tế"
+  const noiDung = document.getElementById("tab-noi-dung");
+  function theChiTieu(c) {
+    const s = c.summary;
+    const o = (nhan, gt) => `<div><dt>${nhan}</dt><dd>${gt}</dd></div>`;
+    return `<dl class="muc-thong-tin">${o("MAE", so(s.MAE, 3))}${o("RMSE", so(s.RMSE, 3))}${o("MAPE (%)", so(s.MAPE, 4))}
+      ${o("Sai số TB (thực tế − dự báo)", so(s.MeanErr, 3))}${o("Độ lệch chuẩn sai số", so(s.SdErr, 3))}${o("Dao động RMSE qua " + s.n_runs + " lần chạy", "± " + so(s.SD_RMSE, 3))}
+      ${o("RMSE so với ARIMA", c.vs_arima_pct == null ? "—" : pt(c.vs_arima_pct))}${o("RMSE so với giữ nguyên giá hôm trước", pt(c.vs_rw_pct))}</dl>`;
+  }
+  function theT1(k, c) {
+    const t = c.t1;
+    const lop = { "Ổn định": "cb-on-dinh", "Tăng": "cb-theo-doi", "Giảm": "cb-theo-doi", "Theo dõi": "cb-theo-doi", "Biến động mạnh": "cb-bien-dong" }[t.alert];
+    return `<div class="the-t1">
+      <div class="the-dau"><div><span class="nhan-muc">Dự báo của riêng mô hình này cho ngày ${BD.ngayVN(t.date)}</span>
+        <div class="kpi-so">${so(t.mean)}</div></div>
+        ${k === CH ? `<span class="nhan nhan-chon"><svg class="icon" aria-hidden="true"><use href="#i-award"/></svg>Mô hình được chọn</span>`
+          : k === "ARIMA" ? `<span class="nhan-bo-sung">chỉ để so sánh</span>` : ""}</div>
+      <dl class="muc-thong-tin">
+        <div><dt>Khoảng thường gặp (± 1,96 × RMSE)</dt><dd>${so(t.mean - 1.96 * c.summary.RMSE, 0)} – ${so(t.mean + 1.96 * c.summary.RMSE, 0)}</dd></div>
+        <div><dt>Thay đổi so với hôm nay</dt><dd>${pt(t.change_pct_mean, 4)}</dd></div>
+        <div><dt>Dao động giữa ${t.n_seeds} lần huấn luyện</dt><dd>${so(t.p05)} – ${so(t.p95)}</dd></div>
+        <div><dt>Cảnh báo</dt><dd><span class="nhan ${lop}">${t.alert}</span></dd></div></dl></div>`;
+  }
+  function bangNgay(k) {
+    const pred = k === "RW" ? T.random_walk : KQ.candidates[k].pred;
+    const dong = T.dates.map((d, i) => { const e = T.actual[i] - pred[i]; return [d, T.actual[i], pred[i], e, e / T.actual[i] * 100]; });
+    const id = "bang-" + k.replace("|", "-");
+    const csv = "{{ url_for('tai_csv', pid=p.Id, khoa='__K__') }}".replace("__K__", encodeURIComponent(k));
+    return `<div class="the-dau" style="margin-top:16px"><h3>Từng ngày trong phần kiểm tra</h3>
+        <a class="nut nut-vien nut-nho" href="${csv}"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Tải CSV</a></div>
+      <div class="cuon-ngang cuon-doc"><table class="bang bang-sap" id="${id}" data-dong='${JSON.stringify(dong)}'>
+        <thead><tr>${["Ngày", "Tỷ giá thực tế", "Dự báo", "Sai lệch (thực tế − dự báo)", "Sai lệch %"].map((h, i) =>
+          `<th class="${i ? "so" : ""}"><button type="button" data-cot="${i}">${h}</button></th>`).join("")}</tr></thead>
+        <tbody></tbody></table></div>`;
+  }
+  function veBang(bang, cot = 0, tang = true) {
+    const dong = JSON.parse(bang.dataset.dong).sort((a, b) => (a[cot] > b[cot] ? 1 : a[cot] < b[cot] ? -1 : 0) * (tang ? 1 : -1));
+    bang.querySelector("tbody").innerHTML = dong.map(r => `<tr><td>${BD.ngayVN(r[0])}</td><td class="so so-lieu">${so(r[1])}</td>
+      <td class="so so-lieu">${so(r[2])}</td><td class="so so-lieu">${so(r[3])}</td><td class="so so-lieu">${pt(r[4], 4)}</td></tr>`).join("");
+    bang.querySelectorAll("[data-cot]").forEach(n => n.setAttribute("aria-sort", Number(n.dataset.cot) === cot ? (tang ? "ascending" : "descending") : "none"));
+  }
+  function bangTongHop() {
+    const keys = [...KQ.ranking, "RW"];
+    return `<div class="cuon-ngang"><table class="bang"><thead><tr><th>Mô hình</th><th class="so">MAE</th><th class="so">RMSE</th>
+      <th class="so">MAPE (%)</th><th class="so">Sai số TB</th><th class="so">Độ lệch chuẩn sai số</th><th class="so">Dao động RMSE</th><th class="so">Dự báo ngày tới</th></tr></thead><tbody>
+      ${keys.map(k => { const rw = k === "RW"; const s = rw ? KQ.random_walk : KQ.candidates[k].summary;
+        return `<tr class="${rw ? "dong-rw" : k === CH ? "dong-chon" : ""}"><td class="tieu-de-o">${ten(k)}${k === CH ? " ★" : ""}</td>
+          <td class="so so-lieu">${so(s.MAE, 3)}</td><td class="so so-lieu"><b>${so(s.RMSE, 3)}</b></td><td class="so so-lieu">${so(s.MAPE, 4)}</td>
+          <td class="so so-lieu">${so(s.MeanErr, 3)}</td><td class="so so-lieu">${so(s.SdErr, 3)}</td><td class="so so-lieu">${rw ? "—" : so(s.SD_RMSE, 3)}</td>
+          <td class="so so-lieu">${rw ? "—" : so(KQ.candidates[k].t1.mean)}</td></tr>`; }).join("")}</tbody></table></div>
+      <p class="ghi-chu">Sắp theo RMSE trung bình tăng dần. ★ = mô hình được chọn để dự báo (chọn trong ANN, Random Forest, XGBoost).
+        ARIMA và "giữ nguyên giá hôm trước" chỉ để so sánh.</p>`;
+  }
+  function moTab(k) {
+    document.querySelectorAll('[role="tab"]').forEach(b => b.setAttribute("aria-selected", b.dataset.tab === k));
+    const khung = `<div class="hang-nut" data-khoang-cho="bd-tab" style="justify-content:flex-end">
+        <button class="nut nut-vien nut-nho" type="button" data-khoang="40" aria-pressed="true">40 ngày cuối</button>
+        <button class="nut nut-vien nut-nho" type="button" data-khoang="all" aria-pressed="false">Toàn bộ phần kiểm tra</button></div>
+      <div class="khung-bieu-do vua"><canvas id="bd-tab" role="img" aria-label="Thực tế và dự báo"></canvas></div>`;
+    if (k === "tat-ca") {
+      noiDung.innerHTML = khung + bangTongHop();
+      gan("bd-tab", BD.ve(document.getElementById("bd-tab"), { dates: T.dates, actual: T.actual, series: tatCaSeries,
+        t1: t1ChuaChon ? { date: t1ChuaChon.date, value: t1ChuaChon.mean } : null }));
+      return;
+    }
+    const c = KQ.candidates[k];
+    noiDung.innerHTML = `<div class="luoi"><div class="c-8">${khung}</div><div class="c-4 xep-doc">${theT1(k, c)}</div></div>`
+                        + theChiTieu(c) + bangNgay(k);
+    const cauHinh = { dates: T.dates, actual: T.actual,
+                      series: [{ label: ten(k), model: c.model, values: c.pred, chosen: k === CH, hidden: false }],
+                      t1: { date: c.t1.date, value: c.t1.mean, lo: c.pi95?.[0], hi: c.pi95?.[1] } };
+    if (k === "ARIMA" && KQ.figure_4_1) cauHinh.band = { lo: KQ.figure_4_1.lo, hi: KQ.figure_4_1.hi, label: "Khoảng dự báo 95% của ARIMA" };
+    gan("bd-tab", BD.ve(document.getElementById("bd-tab"), cauHinh));
+    const bang = noiDung.querySelector(".bang-sap");
+    let cot = 0, tang = true;
+    veBang(bang, cot, tang);
+    bang.querySelectorAll("[data-cot]").forEach(n => n.addEventListener("click", () => {
+      const c2 = Number(n.dataset.cot); tang = c2 === cot ? !tang : true; cot = c2; veBang(bang, cot, tang);
+    }));
+  }
+  document.querySelectorAll('[role="tab"]').forEach(b => b.addEventListener("click", () => {
+    BD.huy(bieuDo["bd-tab"]);
+    moTab(b.dataset.tab);
+  }));
+  moTab(CH || "tat-ca");                      // mở sẵn tab của mô hình được chọn
+</script>
+{% endif %}
+{% endblock %}

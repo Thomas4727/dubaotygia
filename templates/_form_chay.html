@@ -1,0 +1,74 @@
+{# Chọn chế độ chạy và các mô hình. Biến: nut_gui (chữ trên nút). #}
+{% from "_macros.html" import icon %}
+{% from "_thiet_lap.html" import bang_thiet_lap with context %}
+{% from "_cac_buoc.html" import cac_buoc with context %}
+{% set thu, du = CFG_CHE_DO.chay_thu, CFG_CHE_DO.chay_day_du %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="chon-che-do" role="radiogroup" aria-label="Chế độ chạy">
+  <label class="the-chon">
+    <input type="radio" name="che_do" value="chay_thu" checked>
+    <span><b>{{ icon('zap', 'nho') }} Chạy thử</b>
+      <small>Nhanh, khoảng vài phút. Đi qua đủ các bước như Chạy đầy đủ nhưng ít lần lặp hơn
+        ({{ thu.n_baseline_seeds }} lần huấn luyện mỗi mô hình, {{ thu.n_hpo_runs }} lần tối ưu GA/SA, mỗi lần thử {{ thu.budget }} cấu hình),
+        nên kết quả mang tính sơ bộ.</small></span>
+  </label>
+  <label class="the-chon">
+    <input type="radio" name="che_do" value="chay_day_du">
+    <span><b>{{ icon('cpu', 'nho') }} Chạy đầy đủ</b>
+      <small>Chính xác và ổn định hơn: {{ du.n_baseline_seeds }} lần huấn luyện mỗi mô hình, {{ du.n_hpo_runs }} lần tối ưu GA/SA,
+        mỗi lần thử {{ du.budget }} cấu hình. Mất nhiều giờ (web ước tính trước và hỏi bạn xác nhận). Tiến độ được lưu liên tục –
+        máy tắt giữa chừng thì bấm "Chạy tiếp".</small></span>
+  </label>
+</div>
+<div class="luoi hai-che-do">
+  <details class="nguong c-6">
+    <summary>{{ icon('chevron') }}Chạy thử gồm những bước nào?</summary>
+    {{ cac_buoc(thu) }}
+  </details>
+  <details class="nguong c-6">
+    <summary>{{ icon('chevron') }}Chạy đầy đủ gồm những bước nào?</summary>
+    {{ cac_buoc(du) }}
+  </details>
+</div>
+<details class="nguong">
+  <summary>{{ icon('chevron') }}Bảng thông số chi tiết của hai chế độ</summary>
+  {{ bang_thiet_lap() }}
+</details>
+
+<fieldset class="nhom-chon" data-nhom="thuat_toan">
+  <legend>Mô hình <span class="muted">(ARIMA chỉ để so sánh; luôn tính kèm cách "giữ nguyên giá hôm trước" để so sánh)</span></legend>
+  <div class="hang-chon">
+    {% for m in MODELS %}
+      <label class="o-chon"><input type="checkbox" name="thuat_toan" value="{{ m }}" checked> {{ MODEL_NAMES[m] }}</label>
+    {% endfor %}
+    <span class="gian-nho"></span>
+    <button class="nut nut-vien nut-nho" type="button" data-chon="tat-ca">Tất cả</button>
+    <button class="nut nut-vien nut-nho" type="button" data-chon="bo-chon">Bỏ chọn</button>
+  </div>
+</fieldset>
+
+<fieldset class="nhom-chon" data-nhom="bien_the">
+  <legend>Cấu hình cho ANN / Random Forest / XGBoost</legend>
+  <div class="hang-chon">
+    <label class="o-chon"><input type="checkbox" name="bien_the" value="Baseline" checked> Mặc định</label>
+    <label class="o-chon"><input type="checkbox" name="bien_the" value="GA" checked> Tối ưu bằng GA</label>
+    <label class="o-chon"><input type="checkbox" name="bien_the" value="SA" checked> Tối ưu bằng SA</label>
+  </div>
+</fieldset>
+
+<p class="thong-bao thong-bao-canh-bao ghi-chu-pham-vi" hidden>{{ icon('alert') }}
+  <span>Bạn chỉ chọn một phần mô hình – trang kết quả sẽ thiếu một số phần so sánh.</span></p>
+<p class="thong-bao thong-bao-loi loi-pham-vi" hidden role="alert">{{ icon('x') }}<span></span></p>
+
+<details class="nguong">
+  <summary>{{ icon('chevron') }}Ngưỡng cảnh báo Tăng / Giảm / Ổn định</summary>
+  <div class="hang-nut">
+    <label class="truong"><span>"Ổn định" nếu tỷ giá dự báo thay đổi ít hơn (%)</span>
+      <input type="number" name="nguong_theo_doi" step="0.01" min="0" value="{{ '%.2f'|format(COMMON.alert_watch_pct) }}"></label>
+  </div>
+  <p class="ghi-chu">Từ ngưỡng này trở lên, web báo "Tăng" hoặc "Giảm" theo chiều thay đổi. Mặc định 0,10%.</p>
+</details>
+
+<div class="hang-nut">
+  <button class="nut nut-chinh" type="submit">{{ icon('upload') }}{{ nut_gui }}</button>
+</div>

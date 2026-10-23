@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block tieu_de %}Dự báo tỷ giá VND/USD{% endblock %}</title>
+  <script>
+    // Áp giao diện đã lưu trước khi vẽ trang để không nhấp nháy. Mặc định: tối (dashboard tài chính).
+    try { if (localStorage.getItem("giao-dien") === "light") document.documentElement.dataset.theme = "light"; } catch (e) {}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  {% from "_macros.html" import icon %}
+  {% include "_icons.html" %}
+
+  <header class="thanh-tren">
+    <div class="khung">
+      <a class="logo" href="{{ url_for('trang_chu') }}">
+        <span class="logo-dau">{{ icon('logo') }}</span>
+        <span>Dự báo tỷ giá VND/USD<small>Dự báo ngày tiếp theo · ANN · Random Forest · XGBoost</small></span>
+      </a>
+      <span class="gian"></span>
+      {% if la_quan_tri %}
+        <span class="nhan tt-dang_chay">{{ icon('unlock') }}Quản trị</span>
+        <form method="post" action="{{ url_for('dang_xuat') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="nut nut-icon" type="submit" aria-label="Khóa lại chế độ Quản trị" title="Khóa lại chế độ Quản trị">
+            <svg class="icon lon" aria-hidden="true"><use href="#i-lock"/></svg></button>
+        </form>
+      {% else %}
+        <a class="nut nut-icon" href="{{ url_for('dang_nhap', tiep=request.path) }}" aria-label="Quản trị: nhập mật khẩu để chỉnh sửa"
+           title="Quản trị (nhập mật khẩu để xóa, chạy đầy đủ...)"><svg class="icon lon" aria-hidden="true"><use href="#i-lock"/></svg></a>
+      {% endif %}
+      <button class="nut nut-icon" id="doi-giao-dien" type="button" aria-label="Đổi giao diện sáng/tối">
+        <svg class="icon lon" aria-hidden="true"><use id="icon-giao-dien" href="#i-sun"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="khung">
+    {% with thong_bao = get_flashed_messages(with_categories=true) %}
+      {% for loai, noi_dung in thong_bao %}
+        <div class="thong-bao thong-bao-{{ loai }}" role="{{ 'alert' if loai == 'loi' else 'status' }}">
+          {{ icon({'loi': 'x', 'ok': 'check', 'canh-bao': 'alert'}.get(loai, 'info')) }}<div>{{ noi_dung }}</div>
+        </div>
+      {% endfor %}
+    {% endwith %}
+    {% block noi_dung %}{% endblock %}
+  </main>
+
+  <footer class="chan-trang">Dự báo tỷ giá USD/VND · dự báo thống kê từ dữ liệu lịch sử, chỉ để tham khảo, không phải lời khuyên đầu tư</footer>
+
+  <script>
+    (function () {
+      const nut = document.getElementById("doi-giao-dien");
+      const dongBo = () => document.getElementById("icon-giao-dien")
+        .setAttribute("href", document.documentElement.dataset.theme === "light" ? "#i-moon" : "#i-sun");
+      dongBo();
+      nut.addEventListener("click", () => {
+        const sang = document.documentElement.dataset.theme !== "light";
+        if (sang) document.documentElement.dataset.theme = "light"; else delete document.documentElement.dataset.theme;
+        try { localStorage.setItem("giao-dien", sang ? "light" : "dark"); } catch (e) {}
+        dongBo();
+        document.dispatchEvent(new Event("doi-giao-dien"));
+      });
+
+      // Form chọn phạm vi: Tất cả / Bỏ chọn, ẩn nhóm cấu hình khi chỉ chọn ARIMA, ghi chú phạm vi rút gọn
+      function capNhatForm(form) {
+        const tt = [...form.querySelectorAll('input[name="thuat_toan"]')];
+        const bt = [...form.querySelectorAll('input[name="bien_the"]')];
+        if (!tt.length) return true;
+        const coML = tt.some(c => c.checked && c.value !== "ARIMA");
+        const nhomBT = form.querySelector('[data-nhom="bien_the"]');
+        nhomBT.hidden = !coML;
+        const macDinh = tt.every(c => c.checked) && bt.every(c => c.checked);
+        form.querySelector(".ghi-chu-pham-vi").hidden = macDinh || !tt.some(c => c.checked);
+        let loi = "";
+        if (!tt.some(c => c.checked)) loi = "Phải chọn ít nhất 1 thuật toán.";
+        else if (coML && !bt.some(c => c.checked)) loi = "Phải chọn ít nhất 1 cách cấu hình siêu tham số cho ANN/RF/XGBoost.";
+        const hopLoi = form.querySelector(".loi-pham-vi");
+        hopLoi.hidden = !loi;
+        hopLoi.querySelector("span").textContent = loi;
+        return !loi;
+      }
+      document.querySelectorAll(".form-chay").forEach(form => {
+        form.addEventListener("change", () => capNhatForm(form));
+        form.querySelectorAll("[data-chon]").forEach(nut => nut.addEventListener("click", () => {
+          form.querySelectorAll('input[name="thuat_toan"]').forEach(c => { c.checked = nut.dataset.chon === "tat-ca"; });
+          capNhatForm(form);
+        }));
+        capNhatForm(form);
+      });
+
+      // Gửi form: kiểm tra phạm vi, rồi khóa nút + hiện "đang gửi" để không bấm 2 lần
+      document.addEventListener("submit", ev => {
+        const form = ev.target, nutGui = ev.submitter;
+        if (!form.classList.contains("form-chay")) return;
+        if (!capNhatForm(form)) return ev.preventDefault();
+        if (nutGui && nutGui.dataset.xacNhan && !confirm(nutGui.dataset.xacNhan)) return ev.preventDefault();
+        if (nutGui && nutGui.name) {                       // nút bị khóa sẽ không gửi giá trị, nên chép sang input ẩn
+          const an = Object.assign(document.createElement("input"), { type: "hidden", name: nutGui.name, value: nutGui.value });
+          form.appendChild(an);
+        }
+        form.querySelectorAll("button").forEach(b => { b.disabled = true; });
+        if (nutGui) nutGui.innerHTML = '<svg class="icon quay" aria-hidden="true"><use href="#i-loader"/></svg>Đang gửi...';
+      });
+    })();
+  </script>
+  {% block script %}{% endblock %}
+</body>
+</html>
