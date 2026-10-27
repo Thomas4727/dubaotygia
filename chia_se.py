@@ -34,6 +34,13 @@ def ip_noi_bo():
         s.close()
 
 
+def cong_dang_dung(cong):
+    """Cổng đã có chương trình khác lắng nghe (vd chay_web.bat đang mở) thì không chia sẻ được."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("127.0.0.1", cong)) == 0
+
+
 def tim_cloudflared():
     ung_vien = [shutil.which("cloudflared"),
                 r"C:\Program Files (x86)\cloudflared\cloudflared.exe",
@@ -75,6 +82,14 @@ def main():
 
     if "--chi-xem" in args:
         os.environ["PUBLIC_READONLY"] = "1"
+    if cong_dang_dung(CONG):
+        print("\n" + "=" * 70)
+        print(f"  KHÔNG CHIA SẺ ĐƯỢC: cổng {CONG} đang được một chương trình khác dùng.")
+        print("  Thường là do cửa sổ chay_web.bat (hoặc một cửa sổ chia_se_web.bat khác) vẫn đang mở.")
+        print("  Hãy đóng các cửa sổ đó rồi bấm đúp lại chia_se_web.bat.")
+        print("=" * 70, flush=True)
+        return
+
     import app as web
     from waitress import serve
 
