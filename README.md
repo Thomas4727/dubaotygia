@@ -9,7 +9,10 @@ bằng **GA** và **SA**; **Random walk** chỉ để đối chiếu.
 
 ## Bản 1 file HTML (không cần máy chủ) – cách dễ nhất để chia sẻ
 
-**Link chính thức:** https://claude.ai/artifact/9uTzg9zKAm8HkhriojK68E (tên `dubaotygia`). Mọi chỉnh sửa về sau đều
+**Link GitHub Pages:** https://thomas4727.github.io/dubaotygia/ (đủ chức năng, tải được kết quả). Trang lấy từ
+`docs/index.html`; `python offline/build.py` tự chép bản mới vào đó, đẩy lên GitHub là link cập nhật sau 1–2 phút.
+
+**Link trên Claude:** https://claude.ai/artifact/9uTzg9zKAm8HkhriojK68E (tên `dubaotygia`). Mọi chỉnh sửa về sau đều
 đăng lại vào đúng link này: `python offline/build.py --link` tạo `offline/ban_link.html`, rồi đăng file đó lên link trên.
 
 File **`du_bao_ty_gia.html`** chứa toàn bộ web và bộ máy dự báo (ARIMA, ANN, Random Forest, XGBoost, GA, SA,

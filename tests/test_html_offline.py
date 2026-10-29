@@ -13,3 +13,8 @@ def test_html_khop_ma_nguon(tmp_path):
     mod.build(out)
     assert out.read_text(encoding="utf-8") == (ROOT / "du_bao_ty_gia.html").read_text(encoding="utf-8"), \
         "Chạy lại: python offline/build.py"
+
+
+def test_github_pages_cung_ban():
+    assert (ROOT / "docs" / "index.html").read_text(encoding="utf-8") == (ROOT / "du_bao_ty_gia.html").read_text(encoding="utf-8"), \
+        "Chạy lại: python offline/build.py"

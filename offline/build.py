@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "offline" / "src"
 OUT = ROOT / "du_bao_ty_gia.html"
+PAGES_OUT = ROOT / "docs" / "index.html"          # GitHub Pages: https://thomas4727.github.io/dubaotygia/
 # Bản link chính thức (trang Claude). Mọi lần chỉnh sửa đều đăng lại vào ĐÚNG link này, không tạo link mới.
 LINK_URL = "https://claude.ai/artifact/9uTzg9zKAm8HkhriojK68E"
 LINK_TITLE = "dubaotygia"
@@ -59,3 +60,7 @@ if __name__ == "__main__":
         build_link(sys.argv[2] if len(sys.argv) > 2 else LINK_OUT)
     else:
         build()
+        PAGES_OUT.parent.mkdir(exist_ok=True)
+        (PAGES_OUT.parent / ".nojekyll").write_text("", encoding="utf-8")
+        PAGES_OUT.write_text(OUT.read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"Đã chép sang {PAGES_OUT.relative_to(ROOT)} (GitHub Pages)")
