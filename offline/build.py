@@ -9,6 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "offline" / "src"
 OUT = ROOT / "du_bao_ty_gia.html"
+# Bản link chính thức (trang Claude). Mọi lần chỉnh sửa đều đăng lại vào ĐÚNG link này, không tạo link mới.
+LINK_URL = "https://claude.ai/artifact/9uTzg9zKAm8HkhriojK68E"
+LINK_TITLE = "dubaotygia"
+LINK_OUT = ROOT / "offline" / "ban_link.html"
 ENGINE_PARTS = ["engine_core.js", "engine_arima.js", "engine_models.js", "engine_search.js", "engine_pipeline.js"]
 
 
@@ -43,6 +47,7 @@ def build_link(out):
     head = page[page.index("<head>") + 6:page.index("</head>")]
     body = page[page.index("<body>") + 6:page.index("</body>")]
     head = re.sub(r'<meta charset[^>]*>\s*<meta name="viewport"[^>]*>', "", head)
+    head = re.sub(r"<title>.*?</title>", f"<title>{LINK_TITLE}</title>", head, flags=re.S)
     page = head + "\n<script>window.__ARTIFACT__ = true;</script>\n" + body
     Path(out).write_text(page, encoding="utf-8")
     print(f"Đã tạo bản link {Path(out).name}")
@@ -50,7 +55,7 @@ def build_link(out):
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) > 2 and sys.argv[1] == "--link":
-        build_link(sys.argv[2])
+    if len(sys.argv) > 1 and sys.argv[1] == "--link":
+        build_link(sys.argv[2] if len(sys.argv) > 2 else LINK_OUT)
     else:
         build()

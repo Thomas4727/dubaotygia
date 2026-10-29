@@ -9,6 +9,9 @@ bằng **GA** và **SA**; **Random walk** chỉ để đối chiếu.
 
 ## Bản 1 file HTML (không cần máy chủ) – cách dễ nhất để chia sẻ
 
+**Link chính thức:** https://claude.ai/artifact/9uTzg9zKAm8HkhriojK68E (tên `dubaotygia`). Mọi chỉnh sửa về sau đều
+đăng lại vào đúng link này: `python offline/build.py --link` tạo `offline/ban_link.html`, rồi đăng file đó lên link trên.
+
 File **`du_bao_ty_gia.html`** chứa toàn bộ web và bộ máy dự báo (ARIMA, ANN, Random Forest, XGBoost, GA, SA,
 kiểm định ADF/PP) viết lại bằng JavaScript. Mọi phép tính chạy trên trình duyệt của người dùng: không cần
 Python, SQL Server, Cloudflare hay bật máy chủ.
