@@ -20,3 +20,6 @@ __pycache__/
 .idea/
 Thumbs.db
 .DS_Store
+
+# Bản git clone thử của chính repo, nằm lồng trong thư mục dự án
+dubaotygia/
