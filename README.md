@@ -7,6 +7,26 @@ kết luận H1–H3 và phần "So sánh với thực tế" cho từng thuật 
 Chỉ dùng các thuật toán trong bài: **ARIMA, ANN (MLP, PyTorch), Random Forest, XGBoost**; tối ưu siêu tham số
 bằng **GA** và **SA**; **Random walk** chỉ để đối chiếu.
 
+## Bản 1 file HTML (không cần máy chủ) – cách dễ nhất để chia sẻ
+
+File **`du_bao_ty_gia.html`** chứa toàn bộ web và bộ máy dự báo (ARIMA, ANN, Random Forest, XGBoost, GA, SA,
+kiểm định ADF/PP) viết lại bằng JavaScript. Mọi phép tính chạy trên trình duyệt của người dùng: không cần
+Python, SQL Server, Cloudflare hay bật máy chủ.
+
+1. Gửi file `du_bao_ty_gia.html` cho người khác (Zalo, email, Google Drive…), hoặc họ tải từ GitHub.
+2. Người nhận bấm đúp mở bằng **Chrome hoặc Edge**, chọn file tỷ giá `.csv` của mình, bấm **Chạy dự báo**.
+3. Kết quả hiện ngay trên trang, có nút tải `.json` (mở lại sau), `.csv`, In / lưu PDF.
+
+Ghi chú:
+- **Chạy thử** mất khoảng 1–3 phút, **Chạy đầy đủ** mất nhiều giờ (giống bản Python). Phải giữ tab mở. Tiến độ
+  được lưu trong trình duyệt: lỡ đóng tab thì mở lại, chọn đúng file và cùng thiết lập, bấm Chạy để chạy tiếp.
+- Dữ liệu không gửi đi đâu. Kết quả chỉ lưu trong trình duyệt của người chạy.
+- File Excel: lưu thành CSV trước (File → Save As → CSV UTF-8).
+- Bản JS dùng bộ sinh số ngẫu nhiên khác Python nên số liệu ANN/RF/XGBoost lệch nhẹ. Thống kê mô tả, ADF/PP và
+  ARIMA khớp với bản Python (đã đối chiếu trên dữ liệu Vietcombank 5 năm).
+- Sửa giao diện hoặc thuật toán của bản HTML: sửa trong `offline/src/`, rồi chạy `python offline/build.py` để tạo
+  lại `du_bao_ty_gia.html`. Không sửa trực tiếp file HTML.
+
 ## Cách chạy
 
 - **Lần đầu:** bấm đúp `cai_dat.bat`. File này cài thư viện (có PyTorch bản CPU) và tạo các bảng trong SQL Server.

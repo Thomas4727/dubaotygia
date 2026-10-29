@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dự báo tỷ giá USD/VND</title>
+<meta name="description" content="Dự báo tỷ giá USD/VND ngày làm việc tiếp theo bằng ARIMA, ANN, Random Forest, XGBoost và tối ưu GA/SA – chạy hoàn toàn trên trình duyệt.">
+<meta name="color-scheme" content="dark light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  // Giao diện sáng/tối: nhớ lựa chọn trên máy này (nếu trình duyệt cho phép)
+  try { const t = localStorage.getItem("dbtg-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+/*STYLE*/
+</style>
+</head>
+<body>
+<!--ICONS-->
+
+<header class="thanh-tren khong-in">
+  <div class="khung">
+    <span class="logo">
+      <span class="logo-dau"><svg class="icon" aria-hidden="true"><use href="#i-logo"/></svg></span>
+      <span>Dự báo tỷ giá USD/VND<small>ARIMA · ANN · Random Forest · XGBoost · GA / SA</small></span>
+    </span>
+    <span class="gian"></span>
+    <button class="nut nut-icon" id="nut-giao-dien" type="button" aria-label="Đổi giao diện sáng / tối">
+      <svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="khung" id="noi-dung">
+  <section class="dau-trang">
+    <div>
+      <h1>Dự báo tỷ giá ngày làm việc tiếp theo (T+1)</h1>
+      <p>Chạy hoàn toàn trên trình duyệt của bạn: không cần máy chủ, không cài đặt, dữ liệu không gửi đi đâu.</p>
+    </div>
+  </section>
+
+  <div id="canh-bao-moi-truong" hidden></div>
+
+  <!-- 1. Dữ liệu -->
+  <section class="the khong-in" aria-labelledby="td-du-lieu-vao">
+    <div class="the-dau">
+      <div>
+        <span class="nhan-muc">Bước 1</span>
+        <h2 id="td-du-lieu-vao">Chọn file tỷ giá</h2>
+        <p class="muted">File .csv có dòng tiêu đề, gồm cột ngày và cột tỷ giá (ví dụ <code>Ngày,Tỷ giá</code>). Excel: chọn <b>File → Save As → CSV UTF-8</b>.</p>
+      </div>
+      <label class="nut nut-vien nut-nho" for="file-ket-qua">
+        <svg class="icon" aria-hidden="true"><use href="#i-file"/></svg> Mở kết quả đã lưu (.json)
+      </label>
+      <input type="file" id="file-ket-qua" accept=".json,application/json" class="sr-only">
+    </div>
+    <label class="vung-tha" id="vung-tha">
+      <input type="file" id="file-du-lieu" accept=".csv,.txt,text/csv,text/plain" class="sr-only">
+      <span class="vung-tha-icon"><svg class="icon lon" aria-hidden="true"><use href="#i-upload"/></svg></span>
+      <span><b id="vung-tha-chu">Bấm để chọn file, hoặc kéo thả file vào đây</b>
+        <span class="muted" id="vung-tha-phu">Hỗ trợ: Ngay,TyGia · Date,Price (Investing.com) · Date,Close (Yahoo Finance) · file Vietcombank</span></span>
+    </label>
+    <div id="thong-tin-file" class="xep-doc" style="margin-top:16px" hidden></div>
+  </section>
+
+  <!-- 2. Thiết lập -->
+  <section class="the khong-in" aria-labelledby="td-thiet-lap" id="the-thiet-lap">
+    <div class="the-dau">
+      <div>
+        <span class="nhan-muc">Bước 2</span>
+        <h2 id="td-thiet-lap">Thiết lập và chạy</h2>
+        <p class="muted" id="so-luong-cpu"></p>
+      </div>
+    </div>
+    <form id="form-chay" class="form-chay" novalidate>
+      <fieldset class="nhom-chon">
+        <legend>Chế độ chạy</legend>
+        <div class="chon-che-do">
+          <label class="the-chon"><input type="radio" name="mode" value="chay_thu" checked>
+            <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-zap"/></svg> Chạy thử</b>
+              <small>Vài phút. 1 lần chạy GA/SA, ngân sách 30 cấu hình, 3 fold. Để kiểm tra nhanh, không dùng để so với bài.</small></span></label>
+          <label class="the-chon"><input type="radio" name="mode" value="chay_day_du">
+            <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-cpu"/></svg> Chạy đầy đủ</b>
+              <small>Nhiều giờ. 30 lần chạy GA/SA, ngân sách 300 cấu hình, 5 fold, 30 seed – đúng thiết kế của bài NCKH.</small></span></label>
+        </div>
+      </fieldset>
+      <fieldset class="nhom-chon">
+        <legend>Thuật toán</legend>
+        <div class="hang-chon">
+          <label class="o-chon"><input type="checkbox" name="models" value="ARIMA" checked> ARIMA <span class="muted">(đối chiếu)</span></label>
+          <label class="o-chon"><input type="checkbox" name="models" value="ANN" checked> ANN</label>
+          <label class="o-chon"><input type="checkbox" name="models" value="RF" checked> Random Forest</label>
+          <label class="o-chon"><input type="checkbox" name="models" value="XGB" checked> XGBoost</label>
+        </div>
+      </fieldset>
+      <fieldset class="nhom-chon">
+        <legend>Cách cấu hình siêu tham số <span class="muted">(cho ANN, Random Forest, XGBoost)</span></legend>
+        <div class="hang-chon">
+          <label class="o-chon"><input type="checkbox" name="variants" value="Baseline" checked> Mặc định</label>
+          <label class="o-chon"><input type="checkbox" name="variants" value="GA" checked> GA (di truyền)</label>
+          <label class="o-chon"><input type="checkbox" name="variants" value="SA" checked> SA (luyện kim)</label>
+        </div>
+      </fieldset>
+      <div class="hang-nut">
+        <label class="truong" style="flex:0 1 260px"><span>Ngưỡng "Ổn định" (% thay đổi dự báo)</span>
+          <input type="number" name="alert" value="0.10" min="0" max="5" step="0.01" inputmode="decimal"></label>
+        <label class="truong" style="flex:0 1 220px"><span>Số luồng tính toán</span>
+          <select name="threads" id="chon-luong"></select></label>
+      </div>
+      <div id="loi-form" hidden></div>
+      <div class="hang-nut">
+        <button class="nut nut-chinh" type="submit" id="nut-chay" disabled>
+          <svg class="icon" aria-hidden="true"><use href="#i-activity"/></svg> Chạy dự báo
+        </button>
+        <span class="muted" id="goi-y-chay" style="font-size:13px;align-self:center">Chọn file dữ liệu ở Bước 1 trước.</span>
+      </div>
+    </form>
+  </section>
+
+  <!-- Tiến trình -->
+  <section class="the" id="the-tien-trinh" aria-labelledby="td-tien-trinh" hidden>
+    <div class="the-dau">
+      <div>
+        <span class="nhan-muc">Đang chạy</span>
+        <h2 id="td-tien-trinh">Tiến trình 12 bước</h2>
+        <p class="muted" id="tt-pham-vi"></p>
+      </div>
+      <button class="nut nut-vien nut-nho khong-in" type="button" id="nut-huy">
+        <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg> Dừng
+      </button>
+    </div>
+    <div class="thong-bao thong-bao-info khong-in" id="tt-luu-y">
+      <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+      <div>Giữ tab này mở và máy không ngủ. Tiến độ được lưu sau mỗi phần việc: nếu lỡ đóng tab, hãy mở lại file này,
+        chọn lại <b>đúng file dữ liệu và cùng thiết lập</b> rồi bấm <b>Chạy dự báo</b> – phần đã xong sẽ không phải chạy lại.</div>
+    </div>
+    <div class="tong-tien-do" aria-live="polite">
+      <div class="tong-so"><b id="tt-phan-tram">0%</b><span>Đã chạy <b id="tt-da-chay">0 giây</b></span><span>Còn khoảng <b id="tt-con-lai">—</b></span></div>
+      <div class="thanh-tien-do" role="progressbar" aria-label="Tiến độ" aria-valuemin="0" aria-valuemax="100" id="tt-thanh"><div style="width:0%"></div></div>
+    </div>
+    <ol class="stepper" id="tt-cac-buoc"></ol>
+    <details style="margin-top:12px">
+      <summary><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg> Nhật ký chi tiết</summary>
+      <pre class="nhat-ky" id="tt-nhat-ky"></pre>
+    </details>
+  </section>
+
+  <!-- Kết quả -->
+  <div id="ket-qua" class="xep-doc"></div>
+
+  <!-- Lịch sử trên máy này -->
+  <section class="the khong-in" aria-labelledby="td-lich-su" id="the-lich-su" hidden>
+    <div class="the-dau">
+      <div>
+        <span class="nhan-muc">Trên trình duyệt này</span>
+        <h2 id="td-lich-su">Kết quả đã chạy</h2>
+        <p class="muted">Chỉ lưu trong trình duyệt của bạn (không ai khác thấy). Muốn gửi cho người khác: mở kết quả rồi bấm "Tải kết quả (.json)".</p>
+      </div>
+      <button class="nut nut-vien nut-nho" type="button" id="nut-xoa-tam">
+        <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg> Xóa tiến độ tạm
+      </button>
+    </div>
+    <div class="cuon-ngang"><table class="bang"><thead><tr><th>Thời điểm</th><th>File</th><th>Chế độ</th><th>Mô hình chọn</th><th class="so">Dự báo T+1</th><th></th></tr></thead>
+      <tbody id="ds-lich-su"></tbody></table></div>
+  </section>
+</main>
+
+<footer class="chan-trang khong-in">
+  Tái lập quy trình bài NCKH dự báo tỷ giá T+1. Kết quả mang tính tham khảo cho học tập, không phải khuyến nghị giao dịch.
+</footer>
+
+<dialog id="hop-xac-nhan" class="hop-thoai">
+  <form method="dialog">
+    <h2>Chạy đầy đủ mất nhiều thời gian</h2>
+    <div id="hop-noi-dung" class="xep-doc" style="margin:12px 0 16px"></div>
+    <div class="hang-nut">
+      <button class="nut nut-vien" value="huy">Để sau</button>
+      <button class="nut nut-chinh" value="ok" id="hop-ok">Bắt đầu chạy</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="o-goi-y" id="o-goi-y" role="tooltip" hidden></div>
+
+<script type="text/plain" id="worker-src">
+/*ENGINE*/
+/*WORKER*/
+</script>
+<script>
+/*ENGINE*/
+</script>
+<script>
+/*APP*/
+</script>
+</body>
+</html>
