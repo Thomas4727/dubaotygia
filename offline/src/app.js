@@ -24,13 +24,35 @@ const state = { data: null, result: null, running: false, pool: null };
 
 // ======================================================================== Giao diện sáng / tối
 
+// Không đặt data-theme thì theo cài đặt sáng/tối của máy
+const sysLight = () => window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+const currentTheme = () => document.documentElement.dataset.theme || (sysLight() ? "light" : "dark");
+function syncThemeIcon() { $("#nut-giao-dien use").setAttribute("href", currentTheme() === "light" ? "#i-moon" : "#i-sun"); }
 function setTheme(t) {
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem("dbtg-theme", t); } catch (e) {}
-  $("#nut-giao-dien use").setAttribute("href", t === "light" ? "#i-moon" : "#i-sun");
+  syncThemeIcon();
   Charts.redrawAll();
 }
-$("#nut-giao-dien").addEventListener("click", () => setTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
+$("#nut-giao-dien").addEventListener("click", () => setTheme(currentTheme() === "light" ? "dark" : "light"));
+if (window.matchMedia) window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { syncThemeIcon(); Charts.redrawAll(); });
+
+// Hộp xác nhận ngay trên trang (không dùng window.confirm: một số khung nhúng chặn hộp thoại của trình duyệt)
+function askConfirm(html, okLabel) {
+  const dlg = $("#hop-xac-nhan");
+  $("#hop-tieu-de").textContent = "Xác nhận";
+  $("#hop-noi-dung").innerHTML = `<p>${html}</p>`;
+  $("#hop-ok").textContent = okLabel || "Đồng ý";
+  return openDialog(dlg);
+}
+function openDialog(dlg) {
+  if (typeof dlg.showModal !== "function") return Promise.resolve(true);
+  return new Promise(res => {
+    dlg.addEventListener("close", () => res(dlg.returnValue === "ok"), { once: true });
+    dlg.returnValue = "";
+    dlg.showModal();
+  });
+}
 
 // ======================================================================== IndexedDB: tiến độ tạm + kết quả
 
@@ -435,11 +457,9 @@ function confirmFull(est, threads) {
       <li>Có thể làm việc khác trong tab khác, nhưng đừng đóng tab này.</li>
       <li>Nếu lỡ đóng tab: mở lại file, chọn đúng file dữ liệu và cùng thiết lập rồi bấm Chạy – phần đã xong được giữ lại.</li>
     </ul>`;
-  if (typeof dlg.showModal !== "function") return Promise.resolve(window.confirm("Chạy đầy đủ mất nhiều giờ. Bắt đầu?"));
-  return new Promise(res => {
-    dlg.addEventListener("close", () => res(dlg.returnValue === "ok"), { once: true });
-    dlg.showModal();
-  });
+  $("#hop-tieu-de").textContent = "Chạy đầy đủ mất nhiều thời gian";
+  $("#hop-ok").textContent = "Bắt đầu chạy";
+  return openDialog(dlg);
 }
 
 async function startRun(cfg, runner, est) {
@@ -479,9 +499,9 @@ async function startRun(cfg, runner, est) {
     updateRunButton();
   }
 }
-$("#nut-huy").addEventListener("click", () => {
+$("#nut-huy").addEventListener("click", async () => {
   if (!state.pool || !state.running) return;
-  if (!window.confirm("Dừng quy trình? Phần đã xong vẫn được lưu để chạy tiếp lần sau.")) return;
+  if (!(await askConfirm("Dừng quy trình? Phần đã xong vẫn được lưu để chạy tiếp lần sau.", "Dừng"))) return;
   state.pool.cancel();
 });
 
@@ -545,6 +565,7 @@ function showResult(r) {
           <h2 id="td-du-bao">Dự báo ngày ${ngayVN(t1.date)}</h2>
           <p class="muted">Quan sát cuối ${ngayVN(t46.Latest_Observed_Date)}: ${fmt(latest, 0)} VND/USD · chạy xong lúc ${esc(new Date(r.finished_at || Date.now()).toLocaleString("vi-VN"))}${r.elapsed_seconds >= 1 ? " · mất " + fmtTime(r.elapsed_seconds) : ""}</p></div>
         <div class="hang-tai khong-in">
+          <span class="chi-link muted" style="font-size:13px">Bản mở qua link không tải file được. Muốn tải kết quả .json/.csv hoặc in: dùng bản file du_bao_ty_gia.html.</span>
           <button class="nut nut-vien nut-nho" type="button" data-tai="json">${icon("download")} Tải kết quả (.json)</button>
           <button class="nut nut-vien nut-nho" type="button" data-tai="csv">${icon("download")} Dự báo tập kiểm tra (.csv)</button>
           <button class="nut nut-vien nut-nho" type="button" data-tai="t46">${icon("download")} Bảng 4.6 (.csv)</button>
@@ -750,19 +771,20 @@ async function refreshHistory() {
   }).join("");
   $$("[data-mo]").forEach(b => b.addEventListener("click", async () => { const x = await DB.get("results", Number(b.dataset.mo)); if (x) showResult(x.result); }));
   $$("[data-xoa]").forEach(b => b.addEventListener("click", async () => {
-    if (!window.confirm("Xóa kết quả này khỏi trình duyệt?")) return;
+    if (!(await askConfirm("Xóa kết quả này khỏi trình duyệt?", "Xóa"))) return;
     await DB.del("results", Number(b.dataset.xoa)); refreshHistory();
   }));
 }
 $("#nut-xoa-tam").addEventListener("click", async () => {
-  if (!window.confirm("Xóa tiến độ tạm (phần việc đã chạy dở để chạy tiếp)? Kết quả đã chạy xong vẫn giữ.")) return;
+  if (!(await askConfirm("Xóa tiến độ tạm (phần việc đã chạy dở để chạy tiếp)? Kết quả đã chạy xong vẫn giữ.", "Xóa"))) return;
   await DB.clear("units");
   showEnvWarning("Đã xóa tiến độ tạm.");
 });
 
 // ======================================================================== Khởi động
 
-setTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+syncThemeIcon();
+if (window.__ARTIFACT__) document.body.classList.add("ban-link");
 updateRunButton();
 refreshHistory();
 if (location.protocol === "file:" && !window.indexedDB) showEnvWarning("Trình duyệt không cho lưu tiến độ khi mở file trực tiếp: nếu đóng tab giữa chừng sẽ phải chạy lại từ đầu.");

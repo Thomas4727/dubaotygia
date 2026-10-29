@@ -50,3 +50,18 @@
   details > :not(summary) { display: block !important; }
   .cuon-doc { max-height: none; }
 }
+
+/* Theo cài đặt sáng/tối của máy khi người dùng chưa chọn (giữ cùng giá trị với :root[data-theme="light"]) */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light; --bg: #F8FAFC; --surface: #FFFFFF; --surface-2: #EEF2F7; --border: #D6DEE9; --border-soft: #E7ECF3;
+    --text: #0F172A; --text-muted: #475569; --primary: #1E40AF; --primary-strong: #1E3A8A; --link: #1E40AF; --accent-text: #1E40AF;
+    --positive: #15803D; --negative: #DC2626; --warning: #B45309; --tint: 10%;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 4px 16px rgba(15, 23, 42, .05);
+    --c-rw: #64748B; --c-arima: #B45309; --c-ann: #0E7490; --c-rf: #047857; --c-xgb: #BE123C; --band: rgba(30,64,175,.15);
+  }
+}
+body { background: var(--bg); }
+.chi-link { display: none; }
+body.ban-link .chi-link { display: block; flex-basis: 100%; }
+body.ban-link [data-tai] { display: none; }

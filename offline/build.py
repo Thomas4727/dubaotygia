@@ -33,5 +33,24 @@ def build(out=OUT):
     print(f"Đã tạo {out.name} ({out.stat().st_size / 1024:.0f} KB)")
 
 
+def build_link(out):
+    """Bản đăng lên link (trang Claude): bỏ khung <html>/<head>/<body> vì trang được bọc sẵn, bật cờ __ARTIFACT__
+    để ẩn các nút tải file / in mà khung nhúng chặn."""
+    tmp = Path(out).with_suffix(".full.html")
+    build(tmp)
+    page = tmp.read_text(encoding="utf-8")
+    tmp.unlink()
+    head = page[page.index("<head>") + 6:page.index("</head>")]
+    body = page[page.index("<body>") + 6:page.index("</body>")]
+    head = re.sub(r'<meta charset[^>]*>\s*<meta name="viewport"[^>]*>', "", head)
+    page = head + "\n<script>window.__ARTIFACT__ = true;</script>\n" + body
+    Path(out).write_text(page, encoding="utf-8")
+    print(f"Đã tạo bản link {Path(out).name}")
+
+
 if __name__ == "__main__":
-    build()
+    import sys
+    if len(sys.argv) > 2 and sys.argv[1] == "--link":
+        build_link(sys.argv[2])
+    else:
+        build()
