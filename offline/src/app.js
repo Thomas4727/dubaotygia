@@ -361,6 +361,13 @@ async function loadFile(file) {
   updateRunButton();
 }
 
+// Dữ liệu mẫu nhúng sẵn trong trang
+const sampleEl = $("#du-lieu-mau");
+const sampleFile = () => new File([sampleEl.textContent.trim() + "\n"], sampleEl.dataset.ten, { type: "text/csv" });
+$("#nut-du-lieu-mau").addEventListener("click", () => loadFile(sampleFile()));
+$("#nut-tai-mau").addEventListener("click", () => save(sampleEl.dataset.ten, "\uFEFF" + sampleEl.textContent.trim() + "\n", "text/csv"));
+if (window.__ARTIFACT__) $("#nut-tai-mau").hidden = true;
+
 // ======================================================================== Bước 2: thiết lập
 
 const form = $("#form-chay");

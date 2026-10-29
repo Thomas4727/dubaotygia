@@ -14,6 +14,7 @@ PAGES_OUT = ROOT / "docs" / "index.html"          # GitHub Pages: https://thomas
 LINK_URL = "https://claude.ai/artifact/9uTzg9zKAm8HkhriojK68E"
 LINK_TITLE = "dubaotygia"
 LINK_OUT = ROOT / "offline" / "ban_link.html"
+SAMPLE = ROOT / "data" / "tygia_USDVND_Vietcombank_chuyenkhoan_5nam.csv"   # dữ liệu mẫu nhúng vào trang
 ENGINE_PARTS = ["engine_core.js", "engine_arima.js", "engine_models.js", "engine_search.js", "engine_pipeline.js"]
 
 
@@ -29,7 +30,8 @@ def build(out=OUT):
     style = read(ROOT / "static" / "style.css") + "\n" + read(SRC / "extra.css")
     page = read(SRC / "page.html")
     for key, val in (("/*STYLE*/", style), ("<!--ICONS-->", icons), ("/*ENGINE*/", engine),
-                     ("/*WORKER*/", read(SRC / "worker.js")), ("/*APP*/", read(SRC / "app.js"))):
+                     ("/*WORKER*/", read(SRC / "worker.js")), ("/*APP*/", read(SRC / "app.js")),
+                     ("/*SAMPLE*/", read(SAMPLE).strip() + "\n")):
         if key not in page:
             raise SystemExit(f"Thiếu chỗ đặt {key} trong page.html")
         page = page.replace(key, val)
@@ -63,4 +65,5 @@ if __name__ == "__main__":
         PAGES_OUT.parent.mkdir(exist_ok=True)
         (PAGES_OUT.parent / ".nojekyll").write_text("", encoding="utf-8")
         PAGES_OUT.write_text(OUT.read_text(encoding="utf-8"), encoding="utf-8")
+        (PAGES_OUT.parent / SAMPLE.name).write_bytes(SAMPLE.read_bytes())     # link tải trực tiếp trên GitHub Pages
         print(f"Đã chép sang {PAGES_OUT.relative_to(ROOT)} (GitHub Pages)")
