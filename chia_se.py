@@ -49,6 +49,16 @@ def tim_cloudflared():
     return next((p for p in ung_vien if p and Path(p).exists()), None)
 
 
+def chep_vao_clipboard(text):
+    """Chép link vào bộ nhớ tạm của Windows để người dùng chỉ cần Ctrl+V – không phải bôi đen và nhấn Ctrl+C
+    trong cửa sổ đen (Ctrl+C ở đó sẽ TẮT web)."""
+    try:
+        subprocess.run(["clip"], input=text.encode("ascii"), check=True, timeout=5)
+        return True
+    except Exception:
+        return False
+
+
 def mo_duong_ham(exe):
     """Cloudflare quick tunnel: tạo link https://....trycloudflare.com trỏ về web trên máy này."""
     proc = subprocess.Popen([exe, "tunnel", "--no-autoupdate", "--url", f"http://localhost:{CONG}"],
@@ -61,9 +71,14 @@ def mo_duong_ham(exe):
             if m and not da_in:
                 da_in = True
                 FILE_LINK.write_text(m.group(0), encoding="utf-8")
+                da_chep = chep_vao_clipboard(m.group(0))
                 print("\n" + "=" * 70)
                 print(f"  LINK CÔNG KHAI (gửi cho mọi người):  {m.group(0)}")
-                print(f"  (đã lưu vào {FILE_LINK.name}; link đổi mỗi lần chạy lại)")
+                if da_chep:
+                    print("  -> Link đã được CHÉP SẴN: mở Zalo/Messenger/trình duyệt và nhấn Ctrl+V để dán.")
+                print("  -> KHÔNG nhấn Ctrl+C trong cửa sổ này: Ctrl+C sẽ TẮT web và link chết ngay.")
+                print("  -> Chờ khoảng 30 giây rồi mới mở link (Cloudflare cần thời gian kích hoạt).")
+                print(f"  (Link cũng được lưu trong file {FILE_LINK.name}; link đổi mỗi lần chạy lại.)")
                 print("=" * 70 + "\n", flush=True)
             elif "ERR" in dong and not da_in:
                 print("  cloudflared:", dong.strip(), flush=True)
@@ -115,9 +130,14 @@ def main():
             print("Chưa cài cloudflared nên chưa có link công khai. Cài bằng lệnh (một lần):\n"
                   "    winget install --id Cloudflare.cloudflared\n"
                   "rồi tắt và bấm đúp lại chia_se_web.bat.", flush=True)
-    print("Đóng cửa sổ này (hoặc Ctrl+C) để ngừng chia sẻ.\n", flush=True)
+    print("Thu nhỏ cửa sổ này và để nguyên. Muốn ngừng chia sẻ thì đóng cửa sổ (nút X).\n", flush=True)
     try:
         serve(web.app, host=host, port=CONG, threads=8)
+    except KeyboardInterrupt:
+        print("\n" + "=" * 70)
+        print("  ĐÃ TẮT CHIA SẺ (vừa nhấn Ctrl+C). Link vừa rồi không dùng được nữa.")
+        print("  Bấm đúp lại chia_se_web.bat để có link mới.")
+        print("=" * 70, flush=True)
     finally:
         if duong_ham:
             duong_ham.terminate()
