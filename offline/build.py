@@ -15,11 +15,23 @@ LINK_URL = "https://claude.ai/artifact/9uTzg9zKAm8HkhriojK68E"
 LINK_TITLE = "dubaotygia"
 LINK_OUT = ROOT / "offline" / "ban_link.html"
 SAMPLE = ROOT / "data" / "tygia_USDVND_Vietcombank_chuyenkhoan_5nam.csv"   # dữ liệu mẫu nhúng vào trang
+ACTUALS = ROOT / "data" / "thuc_te.csv"     # tỷ giá thực tế các ngày đã qua, để tự so sánh với dự báo
 ENGINE_PARTS = ["engine_core.js", "engine_arima.js", "engine_models.js", "engine_search.js", "engine_pipeline.js"]
 
 
 def read(p):
     return Path(p).read_text(encoding="utf-8")
+
+
+def actuals_json():
+    """data/thuc_te.csv (Ngày yyyy-mm-dd, Tỷ giá) -> {"2026-10-29": 25640, ...}"""
+    import json
+    out = {}
+    for line in read(ACTUALS).splitlines()[1:]:
+        if line.strip():
+            d, v = line.split(",")[:2]
+            out[d.strip()] = float(v)
+    return json.dumps(out)
 
 
 def build(out=OUT):
@@ -31,7 +43,7 @@ def build(out=OUT):
     page = read(SRC / "page.html")
     for key, val in (("/*STYLE*/", style), ("<!--ICONS-->", icons), ("/*ENGINE*/", engine),
                      ("/*WORKER*/", read(SRC / "worker.js")), ("/*APP*/", read(SRC / "app.js")),
-                     ("/*SAMPLE*/", read(SAMPLE).strip() + "\n")):
+                     ("/*SAMPLE*/", read(SAMPLE).strip() + "\n"), ("/*ACTUALS*/", actuals_json())):
         if key not in page:
             raise SystemExit(f"Thiếu chỗ đặt {key} trong page.html")
         page = page.replace(key, val)

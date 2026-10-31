@@ -10,7 +10,7 @@ E.MODELS = ["ARIMA", "ANN", "RF", "XGB"];
 E.ML_MODELS = ["ANN", "RF", "XGB"];
 E.VARIANTS = ["Baseline", "GA", "SA"];
 E.MODEL_NAMES = { ARIMA: "ARIMA", ANN: "ANN", RF: "Random Forest", XGB: "XGBoost", RW: "Random walk" };
-E.MODE_NAMES = { chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
+E.MODE_NAMES = { chay_thu: "Chạy dự báo", chay_day_du: "Chạy đầy đủ" };
 
 E.MODES = {
   chay_thu: {

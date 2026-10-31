@@ -749,13 +749,16 @@ function showResult(r) {
 // ======================================================================== So sánh với tỷ giá thực tế ngày dự báo
 
 const actualKey = d => "dbtg-thuc-te-" + d;
+const KNOWN_ACTUALS = (() => { try { return JSON.parse($("#thuc-te").textContent); } catch (e) { return {}; } })();   // nhập sẵn từ data/thuc_te.csv
 function renderActual(r) {
   const box = $("#so-sanh-thuc-te"), ch = r.candidates[r.chosen_key], date = ch.t1.date, latest = r.table_4_1.last;
-  let saved = r.actual_t1 && r.actual_t1.date === date ? r.actual_t1.value : null;
+  const known = ok(KNOWN_ACTUALS[date]) ? KNOWN_ACTUALS[date] : null;
+  let saved = known !== null ? known : r.actual_t1 && r.actual_t1.date === date ? r.actual_t1.value : null;
   if (saved === null) { try { const v = localStorage.getItem(actualKey(date)); if (v) saved = Number(v); } catch (e) {} }
   box.innerHTML = `
     <div class="the-dau"><div><span class="nhan-muc">Kiểm chứng</span><h2 id="td-thuc-te">So sánh với thực tế ngày ${ngayVN(date)}</h2>
-      <p class="muted">Nhập tỷ giá thực tế của ngày ${ngayVN(date)} (cùng loại tỷ giá với file dữ liệu, ví dụ tỷ giá mua chuyển khoản Vietcombank) để xem các mô hình dự báo lệch bao nhiêu.</p></div></div>
+      <p class="muted">${known !== null ? `Tỷ giá thực tế ngày ${ngayVN(date)} (mua chuyển khoản Vietcombank) đã được nhập sẵn: dự báo được đối chiếu tự động. Có thể sửa số bên dưới.`
+        : `Nhập tỷ giá thực tế của ngày ${ngayVN(date)} (cùng loại tỷ giá với file dữ liệu, ví dụ tỷ giá mua chuyển khoản Vietcombank) để xem các mô hình dự báo lệch bao nhiêu.`}</p></div></div>
     <form class="hang-nut" id="form-thuc-te" novalidate>
       <label class="truong" style="flex:0 1 260px"><span>Tỷ giá thực tế ngày ${ngayVN(date)}</span>
         <input type="text" inputmode="decimal" id="o-thuc-te" placeholder="Ví dụ ${fmt(Math.round(latest), 0)}" value="${saved !== null ? saved : ""}"></label>

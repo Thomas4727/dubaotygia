@@ -614,7 +614,7 @@ body.ban-link [data-tai] { display: none; }
     <form id="form-chay" class="form-chay" novalidate>
       <input type="hidden" name="mode" value="chay_thu">
       <div class="thong-bao thong-bao-info"><svg class="icon" aria-hidden="true"><use href="#i-zap"/></svg>
-        <div><b>Chạy thử</b> · khoảng 1–3 phút · 1 lần chạy GA/SA, ngân sách 30 cấu hình, 3 fold. Mỗi lần bấm Chạy, mọi mô hình được
+        <div><b>Chạy dự báo</b> · khoảng 1–3 phút · 1 lần chạy GA/SA, ngân sách 30 cấu hình, 3 fold. Mỗi lần bấm Chạy, mọi mô hình được
           <b>tính mới từ đầu</b>, không dùng kết quả có sẵn. Kết quả để minh họa, không dùng để so với số liệu chính của bài.</div></div>
       <fieldset class="nhom-chon">
         <legend>Thuật toán</legend>
@@ -1977,6 +1977,7 @@ Ngày,Tỷ giá
 2026-10-27,25640
 2026-10-28,25640
 </script>
+<script type="application/json" id="thuc-te">{"2026-10-29": 25640.0}</script>
 <script type="text/plain" id="worker-src">
 /* Bộ máy dự báo chạy trong trình duyệt – phần 1: tiện ích, đọc và làm sạch dữ liệu, thống kê, kiểm định tính dừng.
    Chuyển từ forecast_engine/ (Python). Mọi tham số lấy từ CONFIG bên dưới (= forecast_engine/run_config.py). */
@@ -1990,7 +1991,7 @@ E.MODELS = ["ARIMA", "ANN", "RF", "XGB"];
 E.ML_MODELS = ["ANN", "RF", "XGB"];
 E.VARIANTS = ["Baseline", "GA", "SA"];
 E.MODEL_NAMES = { ARIMA: "ARIMA", ANN: "ANN", RF: "Random Forest", XGB: "XGBoost", RW: "Random walk" };
-E.MODE_NAMES = { chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
+E.MODE_NAMES = { chay_thu: "Chạy dự báo", chay_day_du: "Chạy đầy đủ" };
 
 E.MODES = {
   chay_thu: {
@@ -4152,7 +4153,7 @@ E.MODELS = ["ARIMA", "ANN", "RF", "XGB"];
 E.ML_MODELS = ["ANN", "RF", "XGB"];
 E.VARIANTS = ["Baseline", "GA", "SA"];
 E.MODEL_NAMES = { ARIMA: "ARIMA", ANN: "ANN", RF: "Random Forest", XGB: "XGBoost", RW: "Random walk" };
-E.MODE_NAMES = { chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
+E.MODE_NAMES = { chay_thu: "Chạy dự báo", chay_day_du: "Chạy đầy đủ" };
 
 E.MODES = {
   chay_thu: {
@@ -7025,13 +7026,16 @@ function showResult(r) {
 // ======================================================================== So sánh với tỷ giá thực tế ngày dự báo
 
 const actualKey = d => "dbtg-thuc-te-" + d;
+const KNOWN_ACTUALS = (() => { try { return JSON.parse($("#thuc-te").textContent); } catch (e) { return {}; } })();   // nhập sẵn từ data/thuc_te.csv
 function renderActual(r) {
   const box = $("#so-sanh-thuc-te"), ch = r.candidates[r.chosen_key], date = ch.t1.date, latest = r.table_4_1.last;
-  let saved = r.actual_t1 && r.actual_t1.date === date ? r.actual_t1.value : null;
+  const known = ok(KNOWN_ACTUALS[date]) ? KNOWN_ACTUALS[date] : null;
+  let saved = known !== null ? known : r.actual_t1 && r.actual_t1.date === date ? r.actual_t1.value : null;
   if (saved === null) { try { const v = localStorage.getItem(actualKey(date)); if (v) saved = Number(v); } catch (e) {} }
   box.innerHTML = `
     <div class="the-dau"><div><span class="nhan-muc">Kiểm chứng</span><h2 id="td-thuc-te">So sánh với thực tế ngày ${ngayVN(date)}</h2>
-      <p class="muted">Nhập tỷ giá thực tế của ngày ${ngayVN(date)} (cùng loại tỷ giá với file dữ liệu, ví dụ tỷ giá mua chuyển khoản Vietcombank) để xem các mô hình dự báo lệch bao nhiêu.</p></div></div>
+      <p class="muted">${known !== null ? `Tỷ giá thực tế ngày ${ngayVN(date)} (mua chuyển khoản Vietcombank) đã được nhập sẵn: dự báo được đối chiếu tự động. Có thể sửa số bên dưới.`
+        : `Nhập tỷ giá thực tế của ngày ${ngayVN(date)} (cùng loại tỷ giá với file dữ liệu, ví dụ tỷ giá mua chuyển khoản Vietcombank) để xem các mô hình dự báo lệch bao nhiêu.`}</p></div></div>
     <form class="hang-nut" id="form-thuc-te" novalidate>
       <label class="truong" style="flex:0 1 260px"><span>Tỷ giá thực tế ngày ${ngayVN(date)}</span>
         <input type="text" inputmode="decimal" id="o-thuc-te" placeholder="Ví dụ ${fmt(Math.round(latest), 0)}" value="${saved !== null ? saved : ""}"></label>
