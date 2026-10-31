@@ -30,7 +30,7 @@ def build(out=OUT):
     style = read(ROOT / "static" / "style.css") + "\n" + read(SRC / "extra.css")
     page = read(SRC / "page.html")
     for key, val in (("/*STYLE*/", style), ("<!--ICONS-->", icons), ("/*ENGINE*/", engine),
-                     ("/*WORKER*/", read(SRC / "worker.js")), ("/*APP*/", read(SRC / "app.js")),
+                     ("/*WORKER*/", read(SRC / "worker.js")), ("/*APP*/", read(SRC / "app.js")), ("/*INTRO*/", read(SRC / "intro.js")),
                      ("/*SAMPLE*/", read(SAMPLE).strip() + "\n")):
         if key not in page:
             raise SystemExit(f"Thiếu chỗ đặt {key} trong page.html")
@@ -58,7 +58,12 @@ def build_link(out):
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "--link":
+    if len(sys.argv) > 1 and sys.argv[1] == "--thu":
+        # Bản xem thử: https://thomas4727.github.io/dubaotygia/thu/ – KHÔNG đụng tới link chính
+        THU = PAGES_OUT.parent / "thu" / "index.html"
+        THU.parent.mkdir(parents=True, exist_ok=True)
+        build(THU)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--link":
         build_link(sys.argv[2] if len(sys.argv) > 2 else LINK_OUT)
     else:
         build()

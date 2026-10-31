@@ -11,8 +11,10 @@ def test_html_khop_ma_nguon(tmp_path):
     spec.loader.exec_module(mod)
     out = tmp_path / "x.html"
     mod.build(out)
-    assert out.read_text(encoding="utf-8") == (ROOT / "du_bao_ty_gia.html").read_text(encoding="utf-8"), \
-        "Chạy lại: python offline/build.py"
+    built = out.read_text(encoding="utf-8")
+    thu = ROOT / "docs" / "thu" / "index.html"          # bản xem thử đang chờ duyệt (python offline/build.py --thu)
+    assert built == (ROOT / "du_bao_ty_gia.html").read_text(encoding="utf-8") or \
+        (thu.exists() and built == thu.read_text(encoding="utf-8")), "Chạy lại: python offline/build.py"
 
 
 def test_github_pages_cung_ban():

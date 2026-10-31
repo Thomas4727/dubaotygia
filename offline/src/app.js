@@ -477,6 +477,7 @@ async function startRun(cfg, runner, est) {
   $("#nut-huy").hidden = false;
   card.scrollIntoView({ behavior: "smooth", block: "start" });
   keepAwake(true);
+  if (window.Intro) Intro.start();
   const d = state.data;
   try {
     const result = await E.runPipeline(d.rows, { filename: d.filename, date_column: d.info.date_column, rate_column: d.info.rate_column },
@@ -575,6 +576,7 @@ $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
 function renderProgress(s) {
+  if (window.Intro) Intro.update(s);
   $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}`;
   $("#tt-phan-tram").textContent = E.vn(s.percent, 1) + "%";
   $("#tt-da-chay").textContent = fmtTime(s.elapsed);
