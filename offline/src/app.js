@@ -312,7 +312,7 @@ const fileInput = $("#file-du-lieu"), drop = $("#vung-tha");
 fileInput.addEventListener("change", () => fileInput.files[0] && loadFile(fileInput.files[0]));
 ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("keo"); }));
 ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("keo"); }));
-drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) { if (/\.json$/i.test(f.name)) openResultFile(f); else loadFile(f); } });
+drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
 
 function decode(buf) {
   for (const enc of ["utf-8", "windows-1258", "windows-1252"]) {
@@ -602,13 +602,6 @@ function showResult(r) {
         <div><span class="nhan-muc">Kết quả · ${esc(r.mode_name)} · ${esc(r.data.filename || "")}</span>
           <h2 id="td-du-bao">Dự báo ngày ${ngayVN(t1.date)}</h2>
           <p class="muted">Quan sát cuối ${ngayVN(t46.Latest_Observed_Date)}: ${fmt(latest, 0)} VND/USD · chạy xong lúc ${esc(new Date(r.finished_at || Date.now()).toLocaleString("vi-VN"))}${r.elapsed_seconds >= 1 ? " · mất " + fmtTime(r.elapsed_seconds) : ""}</p></div>
-        <div class="hang-tai khong-in">
-          <span class="chi-link muted" style="font-size:13px">Bản mở qua link không tải file được. Muốn tải kết quả .json/.csv hoặc in: dùng bản file du_bao_ty_gia.html.</span>
-          <button class="nut nut-vien nut-nho" type="button" data-tai="json">${icon("download")} Tải kết quả (.json)</button>
-          <button class="nut nut-vien nut-nho" type="button" data-tai="csv">${icon("download")} Dự báo tập kiểm tra (.csv)</button>
-          <button class="nut nut-vien nut-nho" type="button" data-tai="t46">${icon("download")} Bảng 4.6 (.csv)</button>
-          <button class="nut nut-vien nut-nho" type="button" data-tai="in">${icon("file")} In / lưu PDF</button>
-        </div>
       </div>
       <div class="luoi-kpi">
         <div class="kpi kpi-chinh"><span class="nhan-muc">Tỷ giá dự báo</span><span class="kpi-so">${fmt(t1.mean, 2)}</span>
@@ -625,7 +618,7 @@ function showResult(r) {
     </section>`;
   } else {
     html += section("td-du-bao", "Kết quả", "Không có mô hình học máy", "Chỉ chạy ARIMA (chuẩn đối chiếu) nên không có dự báo chính. ARIMA dự báo: " +
-      (c.ARIMA && c.ARIMA.t1 ? fmt(c.ARIMA.t1.mean, 2) : "—"), `<div class="hang-tai khong-in"><button class="nut nut-vien nut-nho" type="button" data-tai="json">${icon("download")} Tải kết quả (.json)</button></div>`);
+      (c.ARIMA && c.ARIMA.t1 ? fmt(c.ARIMA.t1.mean, 2) : "—"), "");
   }
 
   // ---------------------------------------------------------------- Biểu đồ test + xếp hạng
@@ -741,7 +734,6 @@ function showResult(r) {
       xFmt: s => s, tipX: s => "Lần đánh giá " + s, yFmt: v => E.vn(v, 2), tipFmt: v => E.vn(v, 4),
       series: firsts.map(x => ({ name: `${E.MODEL_NAMES[x.model]} – ${x.algo}`, data: x.history, color: COLOR[x.model], dash: x.algo === "SA" ? [5, 4] : null, width: 1.6 })) });
   }
-  $$("[data-tai]", el).forEach(b => b.addEventListener("click", () => download(b.dataset.tai)));
   el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -782,47 +774,7 @@ function rmseBars(r) {
     <p class="ghi-chu">${icon("info", "nho")}<span>Thanh bắt đầu từ ${fmt(base, 1)} để thấy rõ chênh lệch.</span></p>`;
 }
 
-// ======================================================================== Tải xuống
-
-function save(name, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement("a");
-  a.href = url; a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
-const csvCell = v => (typeof v === "number" ? String(v) : `"${String(v === null || v === undefined ? "" : v).replace(/"/g, '""')}"`);
-function download(kind) {
-  const r = state.result;
-  if (!r) return;
-  const stamp = (r.finished_at || new Date().toISOString()).slice(0, 16).replace(/[-:T]/g, "");
-  if (kind === "json") save(`ket_qua_du_bao_${r.mode}_${stamp}.json`, JSON.stringify(r), "application/json");
-  if (kind === "in") window.print();
-  if (kind === "csv") {
-    const keys = r.ranking;
-    const head = ["Ngay", "Thuc_te", "Random_walk"].concat(keys.map(k => r.candidates[k].label));
-    const lines = [head.map(csvCell).join(",")];
-    r.test.dates.forEach((d, i) => lines.push([d, r.test.actual[i], r.test.random_walk[i]].concat(keys.map(k => r.candidates[k].pred[i])).map(csvCell).join(",")));
-    save(`du_bao_tap_kiem_tra_${stamp}.csv`, "﻿" + lines.join("\n"), "text/csv");
-  }
-  if (kind === "t46" && r.table_4_6) {
-    const lines = [E.FIELDS_46.map(csvCell).join(","), E.FIELDS_46.map(f => csvCell(r.table_4_6[f])).join(",")];
-    save(`bang_4_6_${stamp}.csv`, "﻿" + lines.join("\n"), "text/csv");
-  }
-}
-
-// ======================================================================== Mở kết quả đã lưu, lịch sử
-
-$("#file-ket-qua").addEventListener("change", e => e.target.files[0] && openResultFile(e.target.files[0]));
-async function openResultFile(f) {
-  try {
-    const r = JSON.parse(await f.text());
-    if (!r || !r.candidates || !r.table_4_1) throw new Error("File không phải kết quả của web này.");
-    showResult(r);
-  } catch (e) {
-    showEnvWarning("Không mở được file kết quả: " + (e.message || e));
-  }
-}
+// ======================================================================== Lịch sử trên trình duyệt này
 
 async function refreshHistory() {
   const all = (await DB.all("results")) || [];
