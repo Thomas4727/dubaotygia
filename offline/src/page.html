@@ -66,9 +66,6 @@
       <button class="nut nut-vien nut-nho" type="button" id="nut-du-lieu-mau">
         <svg class="icon" aria-hidden="true"><use href="#i-database"/></svg> Dùng dữ liệu mẫu Vietcombank 5 năm
       </button>
-      <button class="nut nut-vien nut-nho" type="button" id="nut-tai-mau">
-        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Tải file mẫu (.csv)
-      </button>
       <span class="muted" style="font-size:13px;align-self:center">Tỷ giá USD/VND chuyển khoản Vietcombank, 28/10/2021 – 28/10/2026, 1.247 ngày.</span>
     </div>
     <div id="thong-tin-file" class="xep-doc" style="margin-top:16px" hidden></div>
@@ -84,20 +81,10 @@
       </div>
     </div>
     <form id="form-chay" class="form-chay" novalidate>
-      <fieldset class="nhom-chon">
-        <legend>Chế độ chạy</legend>
-        <div class="chon-che-do">
-          <label class="the-chon"><input type="radio" name="mode" value="trinh_dien">
-            <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-clock"/></svg> Trình diễn (~90 giây)</b>
-              <small>Để thuyết trình: tính mới hoàn toàn, không dùng kết quả lưu sẵn; mỗi bước dừng vài giây để giải thích.</small></span></label>
-          <label class="the-chon"><input type="radio" name="mode" value="chay_thu" checked>
-            <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-zap"/></svg> Chạy thử</b>
-              <small>Vài phút. 1 lần chạy GA/SA, ngân sách 30 cấu hình, 3 fold. Để kiểm tra nhanh, không dùng để so với bài.</small></span></label>
-          <label class="the-chon"><input type="radio" name="mode" value="chay_day_du">
-            <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-cpu"/></svg> Chạy đầy đủ</b>
-              <small>Nhiều giờ. 30 lần chạy GA/SA, ngân sách 300 cấu hình, 5 fold, 30 seed – đúng thiết kế của bài NCKH.</small></span></label>
-        </div>
-      </fieldset>
+      <input type="hidden" name="mode" value="chay_thu">
+      <div class="thong-bao thong-bao-info"><svg class="icon" aria-hidden="true"><use href="#i-zap"/></svg>
+        <div><b>Chạy thử</b> · khoảng 1–3 phút · 1 lần chạy GA/SA, ngân sách 30 cấu hình, 3 fold. Mỗi lần bấm Chạy, mọi mô hình được
+          <b>tính mới từ đầu</b>, không dùng kết quả có sẵn. Kết quả để minh họa, không dùng để so với số liệu chính của bài.</div></div>
       <fieldset class="nhom-chon">
         <legend>Thuật toán</legend>
         <div class="hang-chon">
@@ -143,11 +130,6 @@
         <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg> Dừng
       </button>
     </div>
-    <div class="thong-bao thong-bao-info khong-in" id="tt-luu-y">
-      <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
-      <div>Giữ tab này mở và máy không ngủ. Tiến độ được lưu sau mỗi phần việc: nếu lỡ đóng tab, hãy mở lại file này,
-        chọn lại <b>đúng file dữ liệu và cùng thiết lập</b> rồi bấm <b>Chạy dự báo</b> – phần đã xong sẽ không phải chạy lại.</div>
-    </div>
     <div class="tong-tien-do" aria-live="polite">
       <div class="tong-so"><b id="tt-phan-tram">0%</b><span>Đã chạy <b id="tt-da-chay">0 giây</b></span><span>Còn khoảng <b id="tt-con-lai">—</b></span></div>
       <div class="thanh-tien-do" role="progressbar" aria-label="Tiến độ" aria-valuemin="0" aria-valuemax="100" id="tt-thanh"><div style="width:0%"></div></div>
@@ -191,9 +173,6 @@
         <h2 id="td-lich-su">Kết quả đã chạy</h2>
         <p class="muted">Chỉ lưu trong trình duyệt của bạn (không ai khác thấy). Muốn gửi cho người khác: mở kết quả rồi bấm "Tải kết quả (.json)".</p>
       </div>
-      <button class="nut nut-vien nut-nho" type="button" id="nut-xoa-tam">
-        <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg> Xóa tiến độ tạm
-      </button>
     </div>
     <div class="cuon-ngang"><table class="bang"><thead><tr><th>Thời điểm</th><th>File</th><th>Chế độ</th><th>Mô hình chọn</th><th class="so">Dự báo T+1</th><th></th></tr></thead>
       <tbody id="ds-lich-su"></tbody></table></div>

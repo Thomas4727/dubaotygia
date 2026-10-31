@@ -90,15 +90,6 @@ const DB = (function () {
   };
 })();
 
-function unitStore() {
-  let prefix = "";
-  return {
-    open(fp) { prefix = fp + "|"; return Promise.resolve(); },
-    async get(key) { const v = await DB.get("units", prefix + key); return v === null ? undefined : v; },
-    put(key, val) { DB.put("units", val, prefix + key); },
-  };
-}
-
 // ======================================================================== Nhóm Web Worker
 
 const CORES = Math.max(1, navigator.hardwareConcurrency || 2);
@@ -365,8 +356,6 @@ async function loadFile(file) {
 const sampleEl = $("#du-lieu-mau");
 const sampleFile = () => new File([sampleEl.textContent.trim() + "\n"], sampleEl.dataset.ten, { type: "text/csv" });
 $("#nut-du-lieu-mau").addEventListener("click", () => loadFile(sampleFile()));
-$("#nut-tai-mau").addEventListener("click", () => save(sampleEl.dataset.ten, "\uFEFF" + sampleEl.textContent.trim() + "\n", "text/csv"));
-if (window.__ARTIFACT__) $("#nut-tai-mau").hidden = true;
 
 // ======================================================================== Bước 2: thiết lập
 
@@ -433,15 +422,10 @@ form.addEventListener("submit", async e => {
     const ml = cfg.models.filter(m => E.ML_MODELS.includes(m));
     const cl = E.clean(state.data.rows, cfg);
     await runner.init(cl.y, cfg);
-    if (cfg.mode === "trinh_dien") throw new Error("bỏ qua ước tính");     // trình diễn: bắt đầu ngay
     const measured = { ARIMA: 6 };
     if (ml.length) await runner.run(ml.map(m => ({ key: "measure|" + m, type: "measure", args: { kind: m } })), (k, v) => { measured[v.kind] = v.seconds; });
     est = E.estimate(cfg, measured, cl.y.length, 0, runner.size);
   } catch (err) { est = null; }
-  if (cfg.mode === "chay_day_du") {
-    const okRun = await confirmFull(est, runner.size);
-    if (!okRun) { runner.dispose(); state.running = false; updateRunButton(); return; }
-  }
   await startRun(cfg, runner, est);
 });
 
@@ -456,41 +440,20 @@ function showEnvWarning(msg) {
   el.innerHTML = `<div class="thong-bao thong-bao-canh-bao">${icon("alert")}<div>${esc(msg)}</div></div>`;
 }
 
-function confirmFull(est, threads) {
-  const dlg = $("#hop-xac-nhan");
-  $("#hop-noi-dung").innerHTML = `
-    <p>Ước tính trên máy này với <b>${threads}</b> luồng: khoảng <b>${est ? fmtTime(est.total_seconds) : "nhiều giờ"}</b> (con số chỉ là ước lượng).</p>
-    <ul class="danh-sach">
-      <li>Giữ tab này mở, cắm sạc, tắt chế độ ngủ của máy.</li>
-      <li>Có thể làm việc khác trong tab khác, nhưng đừng đóng tab này.</li>
-      <li>Nếu lỡ đóng tab: mở lại file, chọn đúng file dữ liệu và cùng thiết lập rồi bấm Chạy – phần đã xong được giữ lại.</li>
-    </ul>`;
-  $("#hop-tieu-de").textContent = "Chạy đầy đủ mất nhiều thời gian";
-  $("#hop-ok").textContent = "Bắt đầu chạy";
-  return openDialog(dlg);
-}
-
-// Chế độ Trình diễn: thời gian tối thiểu mỗi bước (ms), tổng khoảng 90 giây
-const PACE = { 1: 4000, 2: 6000, 3: 7000, 4: 6000, 5: 8000, 6: 7000, 7: 22000, 8: 22000, 9: 8000, 10: 5000, 11: 5000, 12: 2000 };
-
 async function startRun(cfg, runner, est) {
   const card = $("#the-tien-trinh");
   card.hidden = false;
   tm.follow = true;
-  $("#tt-luu-y").hidden = cfg.mode === "trinh_dien";
   $("#nut-huy").hidden = false;
   card.scrollIntoView({ behavior: "smooth", block: "start" });
   keepAwake(true);
   const d = state.data;
   try {
     const result = await E.runPipeline(d.rows, { filename: d.filename, date_column: d.info.date_column, rate_column: d.info.rate_column },
-      cfg, runner, renderProgress, cfg.mode === "trinh_dien"
-        ? { store: null, pace: PACE, weights: PACE, estimateSeconds: 90 }          // tính mới hoàn toàn, không lấy kết quả lưu sẵn
-        : { store: unitStore(), weights: est && est.weights, estimateSeconds: est && est.total_seconds });
+      cfg, runner, renderProgress, { store: null, weights: est && est.weights, estimateSeconds: est && est.total_seconds });   // store null: luôn tính mới
     result.threads = runner.size;
     renderProgress(result.progress);
     $("#td-tien-trinh").previousElementSibling.textContent = "Đã xong";
-    $("#tt-luu-y").hidden = true;
     $("#nut-huy").hidden = true;
     const id = Date.now();
     result.id = id;
@@ -581,7 +544,7 @@ $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
 function renderProgress(s) {
-  $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}` + (s.mode === "trinh_dien" ? " · tính mới hoàn toàn, không dùng kết quả lưu sẵn" : "");
+  $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}` + " · tính mới từ đầu, không dùng kết quả có sẵn";
   $("#tt-phan-tram").textContent = E.vn(s.percent, 1) + "%";
   $("#tt-da-chay").textContent = fmtTime(s.elapsed);
   $("#tt-con-lai").textContent = s.percent >= 100 ? "0 giây" : fmtTime(s.eta);
@@ -658,7 +621,8 @@ function showResult(r) {
           <span class="kpi-phu">Dự báo ± 1,96 × RMSE (≈ 95%) · P05–P95 qua ${t1.n_seeds} seed: ${fmt(t1.p05, 1)} – ${fmt(t1.p95, 1)}</span></div>
       </div>
       ${r.alert_check && r.alert_check.mostly_stable ? `<p class="ghi-chu">${icon("info", "nho")}<span>Trên tập kiểm tra, ${fmt(r.alert_check.share_pct["Ổn định"], 1)}% số ngày có thay đổi thực tế nhỏ hơn ngưỡng – cảnh báo "Ổn định" là phổ biến; có thể giảm ngưỡng nếu cần nhạy hơn.</span></p>` : ""}
-    </section>`;
+    </section>
+    <section class="the" aria-labelledby="td-thuc-te" id="so-sanh-thuc-te"></section>`;
   } else {
     html += section("td-du-bao", "Kết quả", "Không có mô hình học máy", "Chỉ chạy ARIMA (chuẩn đối chiếu) nên không có dự báo chính. ARIMA dự báo: " +
       (c.ARIMA && c.ARIMA.t1 ? fmt(c.ARIMA.t1.mean, 2) : "—"), `<div class="hang-tai khong-in"><button class="nut nut-vien nut-nho" type="button" data-tai="json">${icon("download")} Tải kết quả (.json)</button></div>`);
@@ -751,6 +715,7 @@ function showResult(r) {
 
   html += `<p class="ghi-chu">${icon("info", "nho")}<span>Bản HTML dùng bộ máy viết lại bằng JavaScript (ARIMA, ANN, Random Forest, XGBoost, GA, SA) theo đúng quy trình của bản Python; vì bộ sinh số ngẫu nhiên khác nhau nên số liệu của các mô hình học máy có thể lệch nhẹ so với bản Python, nhưng cùng phương pháp.</span></p>`;
   el.innerHTML = html;
+  if (ch) renderActual(r);
 
   // ---------------------------------------------------------------- Vẽ biểu đồ
   const n = r.test.dates.length, labels = r.test.dates.concat(ch ? [ch.t1.date] : []), pad = a => a.concat(ch ? [null] : []);
@@ -779,6 +744,60 @@ function showResult(r) {
   }
   $$("[data-tai]", el).forEach(b => b.addEventListener("click", () => download(b.dataset.tai)));
   el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ======================================================================== So sánh với tỷ giá thực tế ngày dự báo
+
+const actualKey = d => "dbtg-thuc-te-" + d;
+function renderActual(r) {
+  const box = $("#so-sanh-thuc-te"), ch = r.candidates[r.chosen_key], date = ch.t1.date, latest = r.table_4_1.last;
+  let saved = r.actual_t1 && r.actual_t1.date === date ? r.actual_t1.value : null;
+  if (saved === null) { try { const v = localStorage.getItem(actualKey(date)); if (v) saved = Number(v); } catch (e) {} }
+  box.innerHTML = `
+    <div class="the-dau"><div><span class="nhan-muc">Kiểm chứng</span><h2 id="td-thuc-te">So sánh với thực tế ngày ${ngayVN(date)}</h2>
+      <p class="muted">Nhập tỷ giá thực tế của ngày ${ngayVN(date)} (cùng loại tỷ giá với file dữ liệu, ví dụ tỷ giá mua chuyển khoản Vietcombank) để xem các mô hình dự báo lệch bao nhiêu.</p></div></div>
+    <form class="hang-nut" id="form-thuc-te" novalidate>
+      <label class="truong" style="flex:0 1 260px"><span>Tỷ giá thực tế ngày ${ngayVN(date)}</span>
+        <input type="text" inputmode="decimal" id="o-thuc-te" placeholder="Ví dụ ${fmt(Math.round(latest), 0)}" value="${saved !== null ? saved : ""}"></label>
+      <button class="nut nut-chinh" type="submit">${icon("check")} So sánh</button>
+    </form>
+    <div id="kq-thuc-te" class="xep-doc" style="margin-top:16px"></div>`;
+  const show = v => {
+    const out = $("#kq-thuc-te");
+    if (!ok(v) || v <= 0) { out.innerHTML = v === null ? "" : `<div class="thong-bao thong-bao-loi" role="alert">${icon("x")}<div>Nhập một số tỷ giá hợp lệ, ví dụ 25640 hoặc 25.640.</div></div>`; return; }
+    r.actual_t1 = { date, value: v };
+    try { localStorage.setItem(actualKey(date), String(v)); } catch (e) {}
+    if (r.id) DB.put("results", { id: r.id, saved: new Date(r.id).toISOString(), result: r });
+    const thr = r.settings.alert_watch_pct, realChg = (v - latest) / latest * 100, realAlert = E.alert(realChg, thr);
+    const dir = x => (x > 0 ? "Tăng" : x < 0 ? "Giảm" : "Đứng yên");
+    const rows = r.ranking.filter(k => r.candidates[k].t1).map(k => ({ label: r.candidates[k].label, f: r.candidates[k].t1.mean, chosen: r.candidates[k].chosen, rmse: r.candidates[k].summary.RMSE }));
+    rows.push({ label: "Random walk (ngày mai = hôm nay)", f: latest, rw: true, rmse: r.random_walk.RMSE });
+    rows.forEach(x => { x.err = x.f - v; x.abs = Math.abs(x.err); x.pct = x.abs / v * 100; x.alert = E.alert((x.f - latest) / latest * 100, thr); });
+    const byAbs = rows.slice().sort((a, b) => a.abs - b.abs), best = byAbs[0];
+    const c = rows.find(x => x.chosen), inBand = v >= r.error_interval.lo && v <= r.error_interval.hi;
+    out.innerHTML = `
+      <div class="luoi-kpi">
+        <div class="kpi"><span class="nhan-muc">Thực tế ${ngayVN(date)}</span><span class="kpi-so">${fmt(v, 2)}</span>
+          <span class="kpi-phu">${dir(v - latest)} ${fmt(Math.abs(v - latest), 2)} VND (${fmtPct(realChg, 3)}) so với ${fmt(latest, 0)} · thực tế: ${esc(realAlert)}</span></div>
+        <div class="kpi kpi-chinh"><span class="nhan-muc">${esc(c.label)} lệch</span><span class="kpi-so">${c.err >= 0 ? "+" : "−"}${fmt(c.abs, 2)}</span>
+          <span class="kpi-phu">VND · ${fmt(c.pct, 4)}% · ${c.err > 0 ? "dự báo cao hơn thực tế" : c.err < 0 ? "dự báo thấp hơn thực tế" : "trùng khớp"}</span></div>
+        <div class="kpi"><span class="nhan-muc">So với sai số thường gặp</span><span class="kpi-so vua">${c.abs <= c.rmse ? "Nhỏ hơn RMSE" : "Lớn hơn RMSE"}</span>
+          <span class="kpi-phu">|lệch| ${fmt(c.abs, 2)} so với RMSE ${fmt(c.rmse, 2)} trên tập kiểm tra · ${inBand ? "nằm trong" : "nằm ngoài"} khoảng ±1,96 × RMSE</span></div>
+        <div class="kpi"><span class="nhan-muc">Cảnh báo</span><span class="kpi-so vua">${c.alert === realAlert ? "Đúng" : "Chưa đúng"}</span>
+          <span class="kpi-phu">Dự báo: ${esc(c.alert)} · thực tế: ${esc(realAlert)} (ngưỡng ${fmt(thr, 2)}%)</span></div>
+      </div>
+      ${table(["Mô hình", ["Dự báo"], ["Lệch (dự báo − thực tế)"], ["|Lệch| %"], "Cảnh báo dự báo", ["RMSE tập kiểm tra"]], byAbs.map(x =>
+        `<tr class="${x.chosen ? "dong-chon" : x.rw ? "dong-rw" : ""}"><td class="tieu-de-o">${esc(x.label)} ${x.chosen ? '<span class="nhan nhan-chon">Được chọn</span>' : ""}</td>
+          <td class="so">${fmt(x.f, 2)}</td><td class="so ${x === best ? "duong" : ""}">${x.err >= 0 ? "+" : "−"}${fmt(x.abs, 2)}</td><td class="so">${fmt(x.pct, 4)}</td>
+          <td>${esc(x.alert)} ${x.alert === realAlert ? icon("check", "nho") : ""}</td><td class="so">${fmt(x.rmse, 2)}</td></tr>`))}
+      <p class="ghi-chu">${icon("info", "nho")}<span>Gần thực tế nhất: <b>${esc(best.label)}</b> (lệch ${fmt(best.abs, 2)} VND). Một ngày đơn lẻ chỉ để minh họa; độ chính xác của mô hình được đánh giá bằng RMSE trên cả tập kiểm tra.</span></p>`;
+  };
+  $("#form-thuc-te").addEventListener("submit", e => {
+    e.preventDefault();
+    const raw = $("#o-thuc-te").value.trim();
+    show(raw ? E.parseNumber(raw) : null);
+  });
+  if (saved !== null) show(saved);
 }
 
 function rmseBars(r) {
@@ -850,11 +869,6 @@ async function refreshHistory() {
     await DB.del("results", Number(b.dataset.xoa)); refreshHistory();
   }));
 }
-$("#nut-xoa-tam").addEventListener("click", async () => {
-  if (!(await askConfirm("Xóa tiến độ tạm (phần việc đã chạy dở để chạy tiếp)? Kết quả đã chạy xong vẫn giữ.", "Xóa"))) return;
-  await DB.clear("units");
-  showEnvWarning("Đã xóa tiến độ tạm.");
-});
 
 // ======================================================================== Khởi động
 
