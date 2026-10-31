@@ -97,23 +97,5 @@ body.ban-link [data-tai] { display: none; }
 .vung-tha > span:last-child { min-width: 0; }
 .vung-tha b { overflow-wrap: anywhere; }
 
-/* Giới thiệu công cụ (thẻ tự chuyển theo bước) – chữ lớn để trình chiếu */
-.the-gioi-thieu { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
-.gt-the { display: grid; gap: var(--s4); min-height: 300px; align-content: start; }
-.gt-dau { display: flex; gap: var(--s3); align-items: center; }
-.gt-tieu-de { font-size: clamp(20px, 2.4vw, 28px); font-weight: 700; line-height: 1.25; text-wrap: balance; }
-.gt-mo-dau { font-size: 17px; line-height: 1.6; color: var(--text); max-width: 80ch; }
-.gt-cot { display: grid; gap: var(--s3); }
-.gt-cot-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.gt-cot-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.gt-cot > div { background: var(--surface-2); border-radius: var(--r-ctl); padding: var(--s4); min-width: 0; }
-.gt-cot b { display: block; font-size: 15px; margin-bottom: 6px; color: var(--accent-text); }
-.gt-cot ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 15px; line-height: 1.5; }
-.gt-dang { font: 12.5px/1.6 var(--font-data); color: var(--text-muted); overflow-wrap: anywhere; }
-.gt-dieu-khien { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s4); }
-.gt-cham { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.gt-cham button { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; }
-.gt-cham button[aria-current="true"] { background: var(--primary); border-color: var(--primary); width: 28px; border-radius: 999px; }
-@media (max-width: 720px) { .gt-cot-2, .gt-cot-3 { grid-template-columns: minmax(0, 1fr); } .gt-mo-dau { font-size: 16px; } }
 .the-dau > div { min-width: 0; }
 .nhan-muc { overflow-wrap: anywhere; flex-wrap: wrap; }

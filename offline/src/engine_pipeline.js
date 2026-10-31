@@ -50,7 +50,7 @@ const METRIC_TEXT = { MAE: "MAE", RMSE: "RMSE", MAPE: "MAPE (%)" };
 const vn = E.vn;
 
 E.hypotheses = function (t44, t45, cfg, h3) {
-  const label = cfg.mode === "chay_thu" ? " (kết quả Chạy thử, không dùng để so với bài)" : "";
+  const label = cfg.mode !== "chay_day_du" ? ` (kết quả ${E.MODE_NAMES[cfg.mode]}, không dùng để so với bài)` : "";
   const out = {};
   const arima = t44.find(r => r.model === "ARIMA"), ml = t44.filter(r => ML.includes(r.model));
   if (!arima || !ml.length) {
@@ -80,9 +80,9 @@ E.hypotheses = function (t44, t45, cfg, h3) {
     const down = comps.filter(c => c[3] !== null && c[3] > 0).length;
     const note = comps.length === 18 ? "" : ` (phạm vi chạy có ${comps.length}/18 phép so sánh)`;
     let text = `${down}/${comps.length} phép so sánh có sai số giảm sau tối ưu${note}${label}.`, status;
-    if (cfg.mode === "chay_thu") {
-      status = "Chưa đủ căn cứ (Chạy thử)";
-      text = `Bảng 4.5 ở chế độ Chạy thử chỉ có ${cfg.n_hpo_runs} lần chạy GA/SA × ${cfg.n_eval_seeds_per_config} seed mỗi ô, chưa đủ căn cứ để kết luận. Thông tin phụ: ${text}`;
+    if (cfg.mode !== "chay_day_du") {
+      status = `Chưa đủ căn cứ (${E.MODE_NAMES[cfg.mode]})`;
+      text = `Bảng 4.5 ở chế độ ${E.MODE_NAMES[cfg.mode]} chỉ có ${cfg.n_hpo_runs} lần chạy GA/SA × ${cfg.n_eval_seeds_per_config} seed mỗi ô, chưa đủ căn cứ để kết luận. Thông tin phụ: ${text}`;
     } else status = down === comps.length ? "Được ủng hộ" : down ? "Ủng hộ một phần" : "Không được ủng hộ";
     out.H2 = { status, text, detail: comps.map(([m, met, a, v]) => `${E.MODEL_NAMES[m]} · ${met} · ${a}: ${v > 0 ? "giảm" : "không giảm"} (${v > 0 ? "+" : ""}${vn(v, 2)}%)`) };
   }
@@ -243,6 +243,13 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
   const store = opts.store || null;
   const check = () => { if (runner.cancelled) throw new Cancelled(); };
   const reuseTxt = c => (c ? " – lấy từ lần chạy trước" : "");
+  // Nhịp trình diễn: mỗi bước hiện ít nhất opts.pace[bước] ms để người thuyết trình kịp giải thích (tính toán vẫn là thật)
+  const hold = async (...ids) => {
+    if (!opts.pace) return;
+    const waits = ids.map(i => { const s = prog.step(i); return s.status === "bo_qua" || !s.started ? 0 : (opts.pace[i] || 0) - (Date.now() - s.started); });
+    const ms = Math.max(0, ...waits);
+    if (ms > 0) { await new Promise(r => setTimeout(r, ms)); check(); }
+  };
 
   // Chạy các đơn vị việc: phần đã có trong store không chạy lại
   async function runUnits(units, onResult, onMessage) {
@@ -269,17 +276,20 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
       (meta.date_column ? ` · cột ngày '${meta.date_column}', cột tỷ giá '${meta.rate_column}'` : ""));
 
     // 2. Làm sạch
+    await hold(1);
     step = 2; prog.start(2);
     const cl = E.clean(rows, cfg), y = cl.y, days = cl.days, cs = cl.stats;
     prog.done(2, `Còn ${cs.rows_out} dòng, loại ${cs.rows_removed} (dị thường ${cs.anomalies}); ${cs.missing_business_days} ngày làm việc trống`);
     if (store && store.open) await store.open(E.fingerprint(y, cfg));
 
     // 3. Thống kê + tính dừng
+    await hold(2);
     step = 3; prog.start(3, "Chỉ số mô tả, kiểm định ADF và Phillips–Perron cho tỷ giá và mức thay đổi");
     const t41 = E.descriptive(days, y), st = E.stationarity(y), t42 = st.rows, t42c = st.conclusion;
     prog.done(3, t42c.text);
 
     // 4. Đặc trưng + chia dữ liệu
+    await hold(3);
     step = 4; prog.start(4);
     const ctx = new E.Context(y, cfg), s = ctx.split, dv = i => E.fmtVN(days[i]);
     const split = {
@@ -297,6 +307,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     let t43 = [], arimaFig = null, arimaT1 = null;
 
     // 5. ARIMA
+    await hold(4);
     step = 5;
     if (cfg.models.includes("ARIMA")) {
       prog.start(5, "Cấu trúc 0/25");
@@ -314,6 +325,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 6. Baseline tầng 1
+    await hold(5);
     step = 6;
     const tier1 = {}, tier1Pred = {};
     if (!prog.isSkipped(6)) {
@@ -336,6 +348,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 7–8. GA, SA
+    await hold(6);
     step = 7;
     const hpoBy = {};
     if (needHpo.length) {
@@ -380,6 +393,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     const hpoRuns = Object.keys(hpoBy).sort().map(k => hpoBy[k]);
 
     // 9. Đánh giá trên tập kiểm tra (tầng 3, Bảng 4.5)
+    await hold(7, 8);
     step = 9;
     const tier3Base = {}, tier3Hpo = {}, finalCfg = {}, candEval = {}, cost = {};
     if (ml.length) {
@@ -440,6 +454,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 10. Chọn mô hình
+    await hold(9);
     step = 10;
     const selectable = {};
     for (const [k, c] of Object.entries(candidates)) if (c.in_selection) selectable[k] = c.summary;
@@ -454,6 +469,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     else prog.update(10, "Không có mô hình học máy – ARIMA chỉ để so sánh nên không có dự báo chính");
 
     // 11. Huấn luyện lại + dự báo T+1
+    await hold(10);
     step = 11; prog.start(11);
     const forecasts = {};
     if (arimaT1) {
@@ -480,6 +496,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
       : "Đã dự báo T+1 cho ARIMA (đối chiếu); không có mô hình chính");
 
     // 12. Cảnh báo + kết quả
+    await hold(11);
     step = 12; prog.start(12);
     const ch = chosenKey ? candidates[chosenKey] : null;
     let t46 = null, out335 = null;

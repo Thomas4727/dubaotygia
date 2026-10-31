@@ -30,7 +30,7 @@ def build(out=OUT):
     style = read(ROOT / "static" / "style.css") + "\n" + read(SRC / "extra.css")
     page = read(SRC / "page.html")
     for key, val in (("/*STYLE*/", style), ("<!--ICONS-->", icons), ("/*ENGINE*/", engine),
-                     ("/*WORKER*/", read(SRC / "worker.js")), ("/*APP*/", read(SRC / "app.js")), ("/*INTRO*/", read(SRC / "intro.js")),
+                     ("/*WORKER*/", read(SRC / "worker.js")), ("/*APP*/", read(SRC / "app.js")),
                      ("/*SAMPLE*/", read(SAMPLE).strip() + "\n")):
         if key not in page:
             raise SystemExit(f"Thiếu chỗ đặt {key} trong page.html")

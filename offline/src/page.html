@@ -39,9 +39,6 @@
       <h1>Dự báo tỷ giá ngày làm việc tiếp theo (T+1)</h1>
       <p>Chạy hoàn toàn trên trình duyệt của bạn: không cần máy chủ, không cài đặt, dữ liệu không gửi đi đâu.</p>
     </div>
-    <button class="nut nut-vien nut-nho khong-in" type="button" id="nut-xem-gioi-thieu">
-      <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg> Giới thiệu công cụ
-    </button>
   </section>
 
   <div id="canh-bao-moi-truong" hidden></div>
@@ -90,6 +87,9 @@
       <fieldset class="nhom-chon">
         <legend>Chế độ chạy</legend>
         <div class="chon-che-do">
+          <label class="the-chon"><input type="radio" name="mode" value="trinh_dien">
+            <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-clock"/></svg> Trình diễn (~90 giây)</b>
+              <small>Để thuyết trình: tính mới hoàn toàn, không dùng kết quả lưu sẵn; mỗi bước dừng vài giây để giải thích.</small></span></label>
           <label class="the-chon"><input type="radio" name="mode" value="chay_thu" checked>
             <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-zap"/></svg> Chạy thử</b>
               <small>Vài phút. 1 lần chạy GA/SA, ngân sách 30 cấu hình, 3 fold. Để kiểm tra nhanh, không dùng để so với bài.</small></span></label>
@@ -129,20 +129,6 @@
         <span class="muted" id="goi-y-chay" style="font-size:13px;align-self:center">Chọn file dữ liệu ở Bước 1 trước.</span>
       </div>
     </form>
-  </section>
-
-  <!-- Giới thiệu công cụ: tự chuyển theo bước đang chạy -->
-  <section class="the the-gioi-thieu" id="the-gioi-thieu" aria-labelledby="td-gioi-thieu" hidden>
-    <div class="the-dau">
-      <div><span class="nhan-muc">Trong lúc chờ</span><h2 id="td-gioi-thieu">Giới thiệu công cụ</h2></div>
-      <label class="o-chon"><input type="checkbox" id="gt-tu-dong" checked> Tự chuyển theo bước đang chạy</label>
-    </div>
-    <div id="gt-the" class="gt-the" aria-live="polite"></div>
-    <div class="gt-dieu-khien">
-      <button class="nut nut-vien nut-nho" type="button" id="gt-truoc" aria-label="Thẻ trước"><svg class="icon" aria-hidden="true" style="transform:rotate(90deg)"><use href="#i-chevron"/></svg></button>
-      <div class="gt-cham" id="gt-cham"></div>
-      <button class="nut nut-vien nut-nho" type="button" id="gt-sau" aria-label="Thẻ sau"><svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg></button>
-    </div>
   </section>
 
   <!-- Tiến trình -->
@@ -242,9 +228,6 @@
 </script>
 <script>
 /*APP*/
-</script>
-<script>
-/*INTRO*/
 </script>
 </body>
 </html>

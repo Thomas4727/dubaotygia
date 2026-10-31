@@ -433,6 +433,7 @@ form.addEventListener("submit", async e => {
     const ml = cfg.models.filter(m => E.ML_MODELS.includes(m));
     const cl = E.clean(state.data.rows, cfg);
     await runner.init(cl.y, cfg);
+    if (cfg.mode === "trinh_dien") throw new Error("bỏ qua ước tính");     // trình diễn: bắt đầu ngay
     const measured = { ARIMA: 6 };
     if (ml.length) await runner.run(ml.map(m => ({ key: "measure|" + m, type: "measure", args: { kind: m } })), (k, v) => { measured[v.kind] = v.seconds; });
     est = E.estimate(cfg, measured, cl.y.length, 0, runner.size);
@@ -469,19 +470,23 @@ function confirmFull(est, threads) {
   return openDialog(dlg);
 }
 
+// Chế độ Trình diễn: thời gian tối thiểu mỗi bước (ms), tổng khoảng 90 giây
+const PACE = { 1: 4000, 2: 6000, 3: 7000, 4: 6000, 5: 8000, 6: 7000, 7: 22000, 8: 22000, 9: 8000, 10: 5000, 11: 5000, 12: 2000 };
+
 async function startRun(cfg, runner, est) {
   const card = $("#the-tien-trinh");
   card.hidden = false;
   tm.follow = true;
-  $("#tt-luu-y").hidden = false;
+  $("#tt-luu-y").hidden = cfg.mode === "trinh_dien";
   $("#nut-huy").hidden = false;
   card.scrollIntoView({ behavior: "smooth", block: "start" });
   keepAwake(true);
-  if (window.Intro) Intro.start();
   const d = state.data;
   try {
     const result = await E.runPipeline(d.rows, { filename: d.filename, date_column: d.info.date_column, rate_column: d.info.rate_column },
-      cfg, runner, renderProgress, { store: unitStore(), weights: est && est.weights, estimateSeconds: est && est.total_seconds });
+      cfg, runner, renderProgress, cfg.mode === "trinh_dien"
+        ? { store: null, pace: PACE, weights: PACE, estimateSeconds: 90 }          // tính mới hoàn toàn, không lấy kết quả lưu sẵn
+        : { store: unitStore(), weights: est && est.weights, estimateSeconds: est && est.total_seconds });
     result.threads = runner.size;
     renderProgress(result.progress);
     $("#td-tien-trinh").previousElementSibling.textContent = "Đã xong";
@@ -576,8 +581,7 @@ $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
 function renderProgress(s) {
-  if (window.Intro) Intro.update(s);
-  $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}`;
+  $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}` + (s.mode === "trinh_dien" ? " · tính mới hoàn toàn, không dùng kết quả lưu sẵn" : "");
   $("#tt-phan-tram").textContent = E.vn(s.percent, 1) + "%";
   $("#tt-da-chay").textContent = fmtTime(s.elapsed);
   $("#tt-con-lai").textContent = s.percent >= 100 ? "0 giây" : fmtTime(s.eta);

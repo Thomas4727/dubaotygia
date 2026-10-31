@@ -10,9 +10,16 @@ E.MODELS = ["ARIMA", "ANN", "RF", "XGB"];
 E.ML_MODELS = ["ANN", "RF", "XGB"];
 E.VARIANTS = ["Baseline", "GA", "SA"];
 E.MODEL_NAMES = { ARIMA: "ARIMA", ANN: "ANN", RF: "Random Forest", XGB: "XGBoost", RW: "Random walk" };
-E.MODE_NAMES = { chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
+E.MODE_NAMES = { trinh_dien: "Trình diễn", chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
 
 E.MODES = {
+  // Trình diễn khi thuyết trình: tính mới hoàn toàn trong khoảng 90 giây (rút gọn hơn Chạy thử)
+  trinh_dien: {
+    n_baseline_seeds: 3, n_hpo_runs: 1, budget: 16, ga_pop_size: 5, ga_max_generations: 3,
+    sa_t0_samples: 4, sa_moves_per_temp: 4, n_folds: 3, n_test_seeds_baseline: 3,
+    n_eval_seeds_per_config: 2, n_refit_seeds: 3,
+    caps: { ANN_epochs: 80, RF_n_estimators: 150, XGB_n_estimators: 250 },
+  },
   chay_thu: {
     n_baseline_seeds: 3, n_hpo_runs: 1, budget: 30, ga_pop_size: 6, ga_max_generations: 5,
     sa_t0_samples: 5, sa_moves_per_temp: 5, n_folds: 3, n_test_seeds_baseline: 3,

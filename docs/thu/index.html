@@ -509,24 +509,6 @@ body.ban-link [data-tai] { display: none; }
 .vung-tha > span:last-child { min-width: 0; }
 .vung-tha b { overflow-wrap: anywhere; }
 
-/* Giới thiệu công cụ (thẻ tự chuyển theo bước) – chữ lớn để trình chiếu */
-.the-gioi-thieu { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
-.gt-the { display: grid; gap: var(--s4); min-height: 300px; align-content: start; }
-.gt-dau { display: flex; gap: var(--s3); align-items: center; }
-.gt-tieu-de { font-size: clamp(20px, 2.4vw, 28px); font-weight: 700; line-height: 1.25; text-wrap: balance; }
-.gt-mo-dau { font-size: 17px; line-height: 1.6; color: var(--text); max-width: 80ch; }
-.gt-cot { display: grid; gap: var(--s3); }
-.gt-cot-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.gt-cot-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.gt-cot > div { background: var(--surface-2); border-radius: var(--r-ctl); padding: var(--s4); min-width: 0; }
-.gt-cot b { display: block; font-size: 15px; margin-bottom: 6px; color: var(--accent-text); }
-.gt-cot ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 15px; line-height: 1.5; }
-.gt-dang { font: 12.5px/1.6 var(--font-data); color: var(--text-muted); overflow-wrap: anywhere; }
-.gt-dieu-khien { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s4); }
-.gt-cham { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.gt-cham button { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; }
-.gt-cham button[aria-current="true"] { background: var(--primary); border-color: var(--primary); width: 28px; border-radius: 999px; }
-@media (max-width: 720px) { .gt-cot-2, .gt-cot-3 { grid-template-columns: minmax(0, 1fr); } .gt-mo-dau { font-size: 16px; } }
 .the-dau > div { min-width: 0; }
 .nhan-muc { overflow-wrap: anywhere; flex-wrap: wrap; }
 
@@ -588,9 +570,6 @@ body.ban-link [data-tai] { display: none; }
       <h1>Dự báo tỷ giá ngày làm việc tiếp theo (T+1)</h1>
       <p>Chạy hoàn toàn trên trình duyệt của bạn: không cần máy chủ, không cài đặt, dữ liệu không gửi đi đâu.</p>
     </div>
-    <button class="nut nut-vien nut-nho khong-in" type="button" id="nut-xem-gioi-thieu">
-      <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg> Giới thiệu công cụ
-    </button>
   </section>
 
   <div id="canh-bao-moi-truong" hidden></div>
@@ -639,6 +618,9 @@ body.ban-link [data-tai] { display: none; }
       <fieldset class="nhom-chon">
         <legend>Chế độ chạy</legend>
         <div class="chon-che-do">
+          <label class="the-chon"><input type="radio" name="mode" value="trinh_dien">
+            <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-clock"/></svg> Trình diễn (~90 giây)</b>
+              <small>Để thuyết trình: tính mới hoàn toàn, không dùng kết quả lưu sẵn; mỗi bước dừng vài giây để giải thích.</small></span></label>
           <label class="the-chon"><input type="radio" name="mode" value="chay_thu" checked>
             <span><b><svg class="icon nho" aria-hidden="true"><use href="#i-zap"/></svg> Chạy thử</b>
               <small>Vài phút. 1 lần chạy GA/SA, ngân sách 30 cấu hình, 3 fold. Để kiểm tra nhanh, không dùng để so với bài.</small></span></label>
@@ -678,20 +660,6 @@ body.ban-link [data-tai] { display: none; }
         <span class="muted" id="goi-y-chay" style="font-size:13px;align-self:center">Chọn file dữ liệu ở Bước 1 trước.</span>
       </div>
     </form>
-  </section>
-
-  <!-- Giới thiệu công cụ: tự chuyển theo bước đang chạy -->
-  <section class="the the-gioi-thieu" id="the-gioi-thieu" aria-labelledby="td-gioi-thieu" hidden>
-    <div class="the-dau">
-      <div><span class="nhan-muc">Trong lúc chờ</span><h2 id="td-gioi-thieu">Giới thiệu công cụ</h2></div>
-      <label class="o-chon"><input type="checkbox" id="gt-tu-dong" checked> Tự chuyển theo bước đang chạy</label>
-    </div>
-    <div id="gt-the" class="gt-the" aria-live="polite"></div>
-    <div class="gt-dieu-khien">
-      <button class="nut nut-vien nut-nho" type="button" id="gt-truoc" aria-label="Thẻ trước"><svg class="icon" aria-hidden="true" style="transform:rotate(90deg)"><use href="#i-chevron"/></svg></button>
-      <div class="gt-cham" id="gt-cham"></div>
-      <button class="nut nut-vien nut-nho" type="button" id="gt-sau" aria-label="Thẻ sau"><svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg></button>
-    </div>
   </section>
 
   <!-- Tiến trình -->
@@ -2043,9 +2011,16 @@ E.MODELS = ["ARIMA", "ANN", "RF", "XGB"];
 E.ML_MODELS = ["ANN", "RF", "XGB"];
 E.VARIANTS = ["Baseline", "GA", "SA"];
 E.MODEL_NAMES = { ARIMA: "ARIMA", ANN: "ANN", RF: "Random Forest", XGB: "XGBoost", RW: "Random walk" };
-E.MODE_NAMES = { chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
+E.MODE_NAMES = { trinh_dien: "Trình diễn", chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
 
 E.MODES = {
+  // Trình diễn khi thuyết trình: tính mới hoàn toàn trong khoảng 90 giây (rút gọn hơn Chạy thử)
+  trinh_dien: {
+    n_baseline_seeds: 3, n_hpo_runs: 1, budget: 16, ga_pop_size: 5, ga_max_generations: 3,
+    sa_t0_samples: 4, sa_moves_per_temp: 4, n_folds: 3, n_test_seeds_baseline: 3,
+    n_eval_seeds_per_config: 2, n_refit_seeds: 3,
+    caps: { ANN_epochs: 80, RF_n_estimators: 150, XGB_n_estimators: 250 },
+  },
   chay_thu: {
     n_baseline_seeds: 3, n_hpo_runs: 1, budget: 30, ga_pop_size: 6, ga_max_generations: 5,
     sa_t0_samples: 5, sa_moves_per_temp: 5, n_folds: 3, n_test_seeds_baseline: 3,
@@ -3636,7 +3611,7 @@ const METRIC_TEXT = { MAE: "MAE", RMSE: "RMSE", MAPE: "MAPE (%)" };
 const vn = E.vn;
 
 E.hypotheses = function (t44, t45, cfg, h3) {
-  const label = cfg.mode === "chay_thu" ? " (kết quả Chạy thử, không dùng để so với bài)" : "";
+  const label = cfg.mode !== "chay_day_du" ? ` (kết quả ${E.MODE_NAMES[cfg.mode]}, không dùng để so với bài)` : "";
   const out = {};
   const arima = t44.find(r => r.model === "ARIMA"), ml = t44.filter(r => ML.includes(r.model));
   if (!arima || !ml.length) {
@@ -3666,9 +3641,9 @@ E.hypotheses = function (t44, t45, cfg, h3) {
     const down = comps.filter(c => c[3] !== null && c[3] > 0).length;
     const note = comps.length === 18 ? "" : ` (phạm vi chạy có ${comps.length}/18 phép so sánh)`;
     let text = `${down}/${comps.length} phép so sánh có sai số giảm sau tối ưu${note}${label}.`, status;
-    if (cfg.mode === "chay_thu") {
-      status = "Chưa đủ căn cứ (Chạy thử)";
-      text = `Bảng 4.5 ở chế độ Chạy thử chỉ có ${cfg.n_hpo_runs} lần chạy GA/SA × ${cfg.n_eval_seeds_per_config} seed mỗi ô, chưa đủ căn cứ để kết luận. Thông tin phụ: ${text}`;
+    if (cfg.mode !== "chay_day_du") {
+      status = `Chưa đủ căn cứ (${E.MODE_NAMES[cfg.mode]})`;
+      text = `Bảng 4.5 ở chế độ ${E.MODE_NAMES[cfg.mode]} chỉ có ${cfg.n_hpo_runs} lần chạy GA/SA × ${cfg.n_eval_seeds_per_config} seed mỗi ô, chưa đủ căn cứ để kết luận. Thông tin phụ: ${text}`;
     } else status = down === comps.length ? "Được ủng hộ" : down ? "Ủng hộ một phần" : "Không được ủng hộ";
     out.H2 = { status, text, detail: comps.map(([m, met, a, v]) => `${E.MODEL_NAMES[m]} · ${met} · ${a}: ${v > 0 ? "giảm" : "không giảm"} (${v > 0 ? "+" : ""}${vn(v, 2)}%)`) };
   }
@@ -3829,6 +3804,13 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
   const store = opts.store || null;
   const check = () => { if (runner.cancelled) throw new Cancelled(); };
   const reuseTxt = c => (c ? " – lấy từ lần chạy trước" : "");
+  // Nhịp trình diễn: mỗi bước hiện ít nhất opts.pace[bước] ms để người thuyết trình kịp giải thích (tính toán vẫn là thật)
+  const hold = async (...ids) => {
+    if (!opts.pace) return;
+    const waits = ids.map(i => { const s = prog.step(i); return s.status === "bo_qua" || !s.started ? 0 : (opts.pace[i] || 0) - (Date.now() - s.started); });
+    const ms = Math.max(0, ...waits);
+    if (ms > 0) { await new Promise(r => setTimeout(r, ms)); check(); }
+  };
 
   // Chạy các đơn vị việc: phần đã có trong store không chạy lại
   async function runUnits(units, onResult, onMessage) {
@@ -3855,17 +3837,20 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
       (meta.date_column ? ` · cột ngày '${meta.date_column}', cột tỷ giá '${meta.rate_column}'` : ""));
 
     // 2. Làm sạch
+    await hold(1);
     step = 2; prog.start(2);
     const cl = E.clean(rows, cfg), y = cl.y, days = cl.days, cs = cl.stats;
     prog.done(2, `Còn ${cs.rows_out} dòng, loại ${cs.rows_removed} (dị thường ${cs.anomalies}); ${cs.missing_business_days} ngày làm việc trống`);
     if (store && store.open) await store.open(E.fingerprint(y, cfg));
 
     // 3. Thống kê + tính dừng
+    await hold(2);
     step = 3; prog.start(3, "Chỉ số mô tả, kiểm định ADF và Phillips–Perron cho tỷ giá và mức thay đổi");
     const t41 = E.descriptive(days, y), st = E.stationarity(y), t42 = st.rows, t42c = st.conclusion;
     prog.done(3, t42c.text);
 
     // 4. Đặc trưng + chia dữ liệu
+    await hold(3);
     step = 4; prog.start(4);
     const ctx = new E.Context(y, cfg), s = ctx.split, dv = i => E.fmtVN(days[i]);
     const split = {
@@ -3883,6 +3868,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     let t43 = [], arimaFig = null, arimaT1 = null;
 
     // 5. ARIMA
+    await hold(4);
     step = 5;
     if (cfg.models.includes("ARIMA")) {
       prog.start(5, "Cấu trúc 0/25");
@@ -3900,6 +3886,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 6. Baseline tầng 1
+    await hold(5);
     step = 6;
     const tier1 = {}, tier1Pred = {};
     if (!prog.isSkipped(6)) {
@@ -3922,6 +3909,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 7–8. GA, SA
+    await hold(6);
     step = 7;
     const hpoBy = {};
     if (needHpo.length) {
@@ -3966,6 +3954,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     const hpoRuns = Object.keys(hpoBy).sort().map(k => hpoBy[k]);
 
     // 9. Đánh giá trên tập kiểm tra (tầng 3, Bảng 4.5)
+    await hold(7, 8);
     step = 9;
     const tier3Base = {}, tier3Hpo = {}, finalCfg = {}, candEval = {}, cost = {};
     if (ml.length) {
@@ -4026,6 +4015,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 10. Chọn mô hình
+    await hold(9);
     step = 10;
     const selectable = {};
     for (const [k, c] of Object.entries(candidates)) if (c.in_selection) selectable[k] = c.summary;
@@ -4040,6 +4030,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     else prog.update(10, "Không có mô hình học máy – ARIMA chỉ để so sánh nên không có dự báo chính");
 
     // 11. Huấn luyện lại + dự báo T+1
+    await hold(10);
     step = 11; prog.start(11);
     const forecasts = {};
     if (arimaT1) {
@@ -4066,6 +4057,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
       : "Đã dự báo T+1 cho ARIMA (đối chiếu); không có mô hình chính");
 
     // 12. Cảnh báo + kết quả
+    await hold(11);
     step = 12; prog.start(12);
     const ch = chosenKey ? candidates[chosenKey] : null;
     let t46 = null, out335 = null;
@@ -4205,9 +4197,16 @@ E.MODELS = ["ARIMA", "ANN", "RF", "XGB"];
 E.ML_MODELS = ["ANN", "RF", "XGB"];
 E.VARIANTS = ["Baseline", "GA", "SA"];
 E.MODEL_NAMES = { ARIMA: "ARIMA", ANN: "ANN", RF: "Random Forest", XGB: "XGBoost", RW: "Random walk" };
-E.MODE_NAMES = { chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
+E.MODE_NAMES = { trinh_dien: "Trình diễn", chay_thu: "Chạy thử", chay_day_du: "Chạy đầy đủ" };
 
 E.MODES = {
+  // Trình diễn khi thuyết trình: tính mới hoàn toàn trong khoảng 90 giây (rút gọn hơn Chạy thử)
+  trinh_dien: {
+    n_baseline_seeds: 3, n_hpo_runs: 1, budget: 16, ga_pop_size: 5, ga_max_generations: 3,
+    sa_t0_samples: 4, sa_moves_per_temp: 4, n_folds: 3, n_test_seeds_baseline: 3,
+    n_eval_seeds_per_config: 2, n_refit_seeds: 3,
+    caps: { ANN_epochs: 80, RF_n_estimators: 150, XGB_n_estimators: 250 },
+  },
   chay_thu: {
     n_baseline_seeds: 3, n_hpo_runs: 1, budget: 30, ga_pop_size: 6, ga_max_generations: 5,
     sa_t0_samples: 5, sa_moves_per_temp: 5, n_folds: 3, n_test_seeds_baseline: 3,
@@ -5798,7 +5797,7 @@ const METRIC_TEXT = { MAE: "MAE", RMSE: "RMSE", MAPE: "MAPE (%)" };
 const vn = E.vn;
 
 E.hypotheses = function (t44, t45, cfg, h3) {
-  const label = cfg.mode === "chay_thu" ? " (kết quả Chạy thử, không dùng để so với bài)" : "";
+  const label = cfg.mode !== "chay_day_du" ? ` (kết quả ${E.MODE_NAMES[cfg.mode]}, không dùng để so với bài)` : "";
   const out = {};
   const arima = t44.find(r => r.model === "ARIMA"), ml = t44.filter(r => ML.includes(r.model));
   if (!arima || !ml.length) {
@@ -5828,9 +5827,9 @@ E.hypotheses = function (t44, t45, cfg, h3) {
     const down = comps.filter(c => c[3] !== null && c[3] > 0).length;
     const note = comps.length === 18 ? "" : ` (phạm vi chạy có ${comps.length}/18 phép so sánh)`;
     let text = `${down}/${comps.length} phép so sánh có sai số giảm sau tối ưu${note}${label}.`, status;
-    if (cfg.mode === "chay_thu") {
-      status = "Chưa đủ căn cứ (Chạy thử)";
-      text = `Bảng 4.5 ở chế độ Chạy thử chỉ có ${cfg.n_hpo_runs} lần chạy GA/SA × ${cfg.n_eval_seeds_per_config} seed mỗi ô, chưa đủ căn cứ để kết luận. Thông tin phụ: ${text}`;
+    if (cfg.mode !== "chay_day_du") {
+      status = `Chưa đủ căn cứ (${E.MODE_NAMES[cfg.mode]})`;
+      text = `Bảng 4.5 ở chế độ ${E.MODE_NAMES[cfg.mode]} chỉ có ${cfg.n_hpo_runs} lần chạy GA/SA × ${cfg.n_eval_seeds_per_config} seed mỗi ô, chưa đủ căn cứ để kết luận. Thông tin phụ: ${text}`;
     } else status = down === comps.length ? "Được ủng hộ" : down ? "Ủng hộ một phần" : "Không được ủng hộ";
     out.H2 = { status, text, detail: comps.map(([m, met, a, v]) => `${E.MODEL_NAMES[m]} · ${met} · ${a}: ${v > 0 ? "giảm" : "không giảm"} (${v > 0 ? "+" : ""}${vn(v, 2)}%)`) };
   }
@@ -5991,6 +5990,13 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
   const store = opts.store || null;
   const check = () => { if (runner.cancelled) throw new Cancelled(); };
   const reuseTxt = c => (c ? " – lấy từ lần chạy trước" : "");
+  // Nhịp trình diễn: mỗi bước hiện ít nhất opts.pace[bước] ms để người thuyết trình kịp giải thích (tính toán vẫn là thật)
+  const hold = async (...ids) => {
+    if (!opts.pace) return;
+    const waits = ids.map(i => { const s = prog.step(i); return s.status === "bo_qua" || !s.started ? 0 : (opts.pace[i] || 0) - (Date.now() - s.started); });
+    const ms = Math.max(0, ...waits);
+    if (ms > 0) { await new Promise(r => setTimeout(r, ms)); check(); }
+  };
 
   // Chạy các đơn vị việc: phần đã có trong store không chạy lại
   async function runUnits(units, onResult, onMessage) {
@@ -6017,17 +6023,20 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
       (meta.date_column ? ` · cột ngày '${meta.date_column}', cột tỷ giá '${meta.rate_column}'` : ""));
 
     // 2. Làm sạch
+    await hold(1);
     step = 2; prog.start(2);
     const cl = E.clean(rows, cfg), y = cl.y, days = cl.days, cs = cl.stats;
     prog.done(2, `Còn ${cs.rows_out} dòng, loại ${cs.rows_removed} (dị thường ${cs.anomalies}); ${cs.missing_business_days} ngày làm việc trống`);
     if (store && store.open) await store.open(E.fingerprint(y, cfg));
 
     // 3. Thống kê + tính dừng
+    await hold(2);
     step = 3; prog.start(3, "Chỉ số mô tả, kiểm định ADF và Phillips–Perron cho tỷ giá và mức thay đổi");
     const t41 = E.descriptive(days, y), st = E.stationarity(y), t42 = st.rows, t42c = st.conclusion;
     prog.done(3, t42c.text);
 
     // 4. Đặc trưng + chia dữ liệu
+    await hold(3);
     step = 4; prog.start(4);
     const ctx = new E.Context(y, cfg), s = ctx.split, dv = i => E.fmtVN(days[i]);
     const split = {
@@ -6045,6 +6054,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     let t43 = [], arimaFig = null, arimaT1 = null;
 
     // 5. ARIMA
+    await hold(4);
     step = 5;
     if (cfg.models.includes("ARIMA")) {
       prog.start(5, "Cấu trúc 0/25");
@@ -6062,6 +6072,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 6. Baseline tầng 1
+    await hold(5);
     step = 6;
     const tier1 = {}, tier1Pred = {};
     if (!prog.isSkipped(6)) {
@@ -6084,6 +6095,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 7–8. GA, SA
+    await hold(6);
     step = 7;
     const hpoBy = {};
     if (needHpo.length) {
@@ -6128,6 +6140,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     const hpoRuns = Object.keys(hpoBy).sort().map(k => hpoBy[k]);
 
     // 9. Đánh giá trên tập kiểm tra (tầng 3, Bảng 4.5)
+    await hold(7, 8);
     step = 9;
     const tier3Base = {}, tier3Hpo = {}, finalCfg = {}, candEval = {}, cost = {};
     if (ml.length) {
@@ -6188,6 +6201,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 10. Chọn mô hình
+    await hold(9);
     step = 10;
     const selectable = {};
     for (const [k, c] of Object.entries(candidates)) if (c.in_selection) selectable[k] = c.summary;
@@ -6202,6 +6216,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     else prog.update(10, "Không có mô hình học máy – ARIMA chỉ để so sánh nên không có dự báo chính");
 
     // 11. Huấn luyện lại + dự báo T+1
+    await hold(10);
     step = 11; prog.start(11);
     const forecasts = {};
     if (arimaT1) {
@@ -6228,6 +6243,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
       : "Đã dự báo T+1 cho ARIMA (đối chiếu); không có mô hình chính");
 
     // 12. Cảnh báo + kết quả
+    await hold(11);
     step = 12; prog.start(12);
     const ch = chosenKey ? candidates[chosenKey] : null;
     let t46 = null, out335 = null;
@@ -6762,6 +6778,7 @@ form.addEventListener("submit", async e => {
     const ml = cfg.models.filter(m => E.ML_MODELS.includes(m));
     const cl = E.clean(state.data.rows, cfg);
     await runner.init(cl.y, cfg);
+    if (cfg.mode === "trinh_dien") throw new Error("bỏ qua ước tính");     // trình diễn: bắt đầu ngay
     const measured = { ARIMA: 6 };
     if (ml.length) await runner.run(ml.map(m => ({ key: "measure|" + m, type: "measure", args: { kind: m } })), (k, v) => { measured[v.kind] = v.seconds; });
     est = E.estimate(cfg, measured, cl.y.length, 0, runner.size);
@@ -6798,19 +6815,23 @@ function confirmFull(est, threads) {
   return openDialog(dlg);
 }
 
+// Chế độ Trình diễn: thời gian tối thiểu mỗi bước (ms), tổng khoảng 90 giây
+const PACE = { 1: 4000, 2: 6000, 3: 7000, 4: 6000, 5: 8000, 6: 7000, 7: 22000, 8: 22000, 9: 8000, 10: 5000, 11: 5000, 12: 2000 };
+
 async function startRun(cfg, runner, est) {
   const card = $("#the-tien-trinh");
   card.hidden = false;
   tm.follow = true;
-  $("#tt-luu-y").hidden = false;
+  $("#tt-luu-y").hidden = cfg.mode === "trinh_dien";
   $("#nut-huy").hidden = false;
   card.scrollIntoView({ behavior: "smooth", block: "start" });
   keepAwake(true);
-  if (window.Intro) Intro.start();
   const d = state.data;
   try {
     const result = await E.runPipeline(d.rows, { filename: d.filename, date_column: d.info.date_column, rate_column: d.info.rate_column },
-      cfg, runner, renderProgress, { store: unitStore(), weights: est && est.weights, estimateSeconds: est && est.total_seconds });
+      cfg, runner, renderProgress, cfg.mode === "trinh_dien"
+        ? { store: null, pace: PACE, weights: PACE, estimateSeconds: 90 }          // tính mới hoàn toàn, không lấy kết quả lưu sẵn
+        : { store: unitStore(), weights: est && est.weights, estimateSeconds: est && est.total_seconds });
     result.threads = runner.size;
     renderProgress(result.progress);
     $("#td-tien-trinh").previousElementSibling.textContent = "Đã xong";
@@ -6905,8 +6926,7 @@ $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
 function renderProgress(s) {
-  if (window.Intro) Intro.update(s);
-  $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}`;
+  $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}` + (s.mode === "trinh_dien" ? " · tính mới hoàn toàn, không dùng kết quả lưu sẵn" : "");
   $("#tt-phan-tram").textContent = E.vn(s.percent, 1) + "%";
   $("#tt-da-chay").textContent = fmtTime(s.elapsed);
   $("#tt-con-lai").textContent = s.percent >= 100 ? "0 giây" : fmtTime(s.eta);
@@ -7189,147 +7209,6 @@ updateRunButton();
 refreshHistory();
 if (location.protocol === "file:" && !window.indexedDB) showEnvWarning("Trình duyệt không cho lưu tiến độ khi mở file trực tiếp: nếu đóng tab giữa chừng sẽ phải chạy lại từ đầu.");
 window.__app = { state, showResult, loadFile };
-})();
-
-</script>
-<script>
-/* Giới thiệu công cụ trong lúc chạy: mỗi thẻ giải thích một phần của quy trình, tự chuyển theo bước đang chạy
-   (thay cho slide giới thiệu công cụ khi thuyết trình). Người xem có thể tự bấm trước / sau. */
-(function () {
-"use strict";
-
-const CARDS = [
-  { steps: [1], tag: "Tổng quan", title: "Công cụ dự báo tỷ giá USD/VND ngày làm việc tiếp theo",
-    lead: "Một quy trình khép kín: nhận dữ liệu tỷ giá, tự kiểm tra, huấn luyện và tối ưu các mô hình, chọn mô hình tốt nhất rồi đưa ra dự báo kèm cảnh báo.",
-    cols: [["Đầu vào", ["Chuỗi tỷ giá USD/VND theo ngày (file .csv)", "Chọn chế độ chạy, mô hình, cách tối ưu", "Ngưỡng cảnh báo biến động"]],
-           ["Xử lý lõi", ["Làm sạch dữ liệu, kiểm định tính dừng", "Tạo đặc trưng: trễ, lợi suất, trung bình trượt", "Huấn luyện ARIMA, ANN, Random Forest, XGBoost; tối ưu bằng GA và SA", "Đánh giá lặp lại, chọn mô hình tốt nhất"]],
-           ["Đầu ra quản lý", ["Tỷ giá dự báo ngày làm việc tiếp theo", "Cảnh báo Tăng / Giảm / Ổn định", "Bảng 4.1 – 4.6, biểu đồ, kết luận giả thuyết"]]] },
-  { steps: [2], tag: "Bước 2", title: "Làm sạch dữ liệu",
-    lead: "Dữ liệu bẩn làm mô hình học sai. Công cụ tự làm 6 bước, không cần sửa tay.",
-    cols: [["Chuẩn hóa", ["Đọc nhiều định dạng ngày: 28/10/2026, 2026-10-28…", "Sắp xếp theo thời gian tăng dần", "Bỏ dòng trùng ngày (giữ dòng cuối)"]],
-           ["Kiểm tra giá trị", ["Bỏ tỷ giá trống, âm hoặc bằng 0", "Điểm dị thường: nhảy hơn 1% rồi hôm sau quay lại → loại", "Chỉ giữ ngày làm việc, không tự bịa số cho ngày nghỉ"]]] },
-  { steps: [3], tag: "Bước 3", title: "Thống kê mô tả và kiểm định tính dừng",
-    lead: "Chuỗi “dừng” là chuỗi có trung bình và độ dao động không đổi theo thời gian. Tỷ giá thường không dừng vì có xu hướng tăng dần.",
-    cols: [["Kiểm định ADF và Phillips–Perron", ["Giả thuyết H0: chuỗi có nghiệm đơn vị (không dừng)", "Bác bỏ H0 ở mức 1%, 5%, 10% → đánh dấu a, b, c", "Kiểm cho cả tỷ giá và mức thay đổi hằng ngày"]],
-           ["Vì sao quan trọng", ["Tỷ giá không dừng nhưng mức thay đổi thì dừng → I(1)", "Vì vậy mô hình dự báo MỨC THAY ĐỔI, rồi cộng vào tỷ giá hôm nay", "Bậc sai phân d này cũng dùng cho ARIMA"]]] },
-  { steps: [4], tag: "Bước 4", title: "Tạo đặc trưng và chia dữ liệu theo thời gian",
-    lead: "Mô hình học máy cần “gợi ý” để học. Mỗi ngày được mô tả bằng các con số chỉ dùng thông tin đến hết ngày đó.",
-    cols: [["Đặc trưng", ["Trễ: mức thay đổi của p ngày gần nhất", "Lợi suất: thay đổi so với hôm trước (%)", "Trung bình và độ lệch chuẩn trượt w ngày", "Khoảng cách tới trung bình trượt, động lượng"]],
-           ["Chia dữ liệu", ["80% đầu: xây dựng mô hình; 20% cuối: kiểm tra", "Không xáo trộn: tương lai không được lọt vào quá khứ", "Kiểm tra chéo cửa sổ mở rộng để chấm điểm cấu hình"]]] },
-  { steps: [5], tag: "Bước 5", title: "ARIMA – mô hình kinh tế lượng để đối chứng",
-    lead: "ARIMA dự báo dựa trên các giá trị và sai số trong quá khứ. Đây là thước đo để xem học máy có thật sự tốt hơn cách truyền thống không.",
-    cols: [["Cách làm", ["Thử 25 cấu trúc ARIMA(p, d, q) với p, q từ 0 đến 4", "Chọn cấu trúc có AIC thấp nhất (vừa khớp dữ liệu, vừa gọn)", "Dự báo từng ngày trên 20% dữ liệu kiểm tra"]],
-           ["Lưu ý", ["ARIMA chỉ để so sánh, không được chọn làm mô hình chính", "Có khoảng dự báo 95% (vùng mờ trên biểu đồ)"]]] },
-  { steps: [6], tag: "Bước 6", title: "Ba mô hình học máy",
-    lead: "Mỗi mô hình được huấn luyện nhiều lần với cấu hình mặc định để đo độ chính xác và độ ổn định.",
-    cols: [["ANN – mạng nơ-ron", ["Nhiều lớp “nơ-ron” học quan hệ phi tuyến", "Nhạy với cách khởi tạo ban đầu"]],
-           ["Random Forest", ["Hàng trăm cây quyết định, lấy trung bình", "Thường ổn định giữa các lần chạy"]],
-           ["XGBoost", ["Cây sau sửa sai số của cây trước", "Có dừng sớm để tránh học thuộc lòng"]]] },
-  { steps: [7], tag: "Bước 7", title: "Tối ưu siêu tham số bằng GA – thuật toán di truyền",
-    lead: "Siêu tham số là các “nút vặn” của mô hình (số cây, độ sâu, tốc độ học…). GA mô phỏng chọn lọc tự nhiên để tìm bộ nút vặn tốt.",
-    cols: [["Cách hoạt động", ["Quần thể: nhiều cấu hình cùng lúc", "Chọn lọc: cấu hình sai số thấp được giữ", "Lai ghép và đột biến tạo cấu hình mới", "Lặp qua nhiều thế hệ"]],
-           ["Chấm điểm", ["Điểm J = RMSE trung bình trên các giai đoạn kiểm tra chéo", "Chỉ dùng dữ liệu trước phần kiểm tra – không “nhìn trộm” đáp án"]]] },
-  { steps: [8], tag: "Bước 8", title: "Tối ưu siêu tham số bằng SA – mô phỏng luyện kim",
-    lead: "SA giống làm nguội kim loại: lúc đầu “nóng” nên dám thử cả cấu hình kém hơn để không bị kẹt, càng về sau càng chỉ nhận cấu hình tốt hơn.",
-    cols: [["Cách hoạt động", ["Bắt đầu từ cấu hình mặc định", "Thử cấu hình lân cận (đổi 1–2 nút vặn)", "Nhiệt độ T giảm dần sau mỗi vòng"]],
-           ["So sánh công bằng với GA", ["Cùng không gian tìm kiếm", "Cùng hàm điểm J và cùng các giai đoạn kiểm tra", "Cùng ngân sách số lần thử"]]] },
-  { steps: [9], tag: "Bước 9", title: "Đánh giá trên 20% dữ liệu cuối",
-    lead: "Mọi mô hình được chạy lại nhiều lần trên phần dữ liệu chưa từng dùng khi xây dựng, để đo cả độ chính xác lẫn độ ổn định.",
-    cols: [["Chỉ tiêu", ["RMSE: sai số bình phương trung bình, phạt nặng sai số lớn (đơn vị VND)", "MAE: sai số tuyệt đối trung bình", "MAPE: sai số theo phần trăm"]],
-           ["Mốc so sánh", ["ARIMA: mô hình truyền thống", "Random walk: “ngày mai bằng hôm nay” – mốc khó vượt qua (Meese–Rogoff)", "Trước và sau tối ưu: GA, SA cải thiện bao nhiêu"]]] },
-  { steps: [10], tag: "Bước 10", title: "Chọn mô hình",
-    lead: "Mô hình được chọn là ứng viên có RMSE trung bình thấp nhất qua các lần chạy lặp trên dữ liệu kiểm tra.",
-    cols: [["Ứng viên", ["ANN, Random Forest, XGBoost", "Mỗi mô hình 3 cách cấu hình: mặc định, GA, SA → tối đa 9 ứng viên"]],
-           ["Không được chọn", ["ARIMA và Random walk chỉ dùng để đối chiếu"]]] },
-  { steps: [11, 12], tag: "Bước 11 – 12", title: "Dự báo ngày tiếp theo và cảnh báo",
-    lead: "Mô hình được chọn được huấn luyện lại rồi dự báo tỷ giá ngày làm việc kế tiếp, kèm cảnh báo cho người quản lý.",
-    cols: [["Dự báo", ["Lặp nhiều lần, lấy trung bình", "Khoảng dao động P05 – P95 giữa các lần", "Khoảng theo sai số lịch sử: dự báo ± 1,96 × RMSE"]],
-           ["Cảnh báo", ["Ổn định: thay đổi dự báo nhỏ hơn ngưỡng (mặc định 0,10%)", "Tăng / Giảm: vượt ngưỡng theo chiều tương ứng", "Kết quả, bảng và biểu đồ hiện ngay bên dưới"]]] },
-];
-const MIN_DWELL = 9000, ROTATE = 14000;
-const $ = s => document.querySelector(s);
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-
-let idx = 0, shownAt = 0, auto = true, lastSnap = null, timer = null;
-
-function render() {
-  const c = CARDS[idx], box = $("#gt-the");
-  box.innerHTML = `
-    <div class="gt-dau"><span class="nhan nhan-chon">${esc(c.tag)}</span><span class="muted">${idx + 1} / ${CARDS.length}</span></div>
-    <h3 class="gt-tieu-de">${esc(c.title)}</h3>
-    <p class="gt-mo-dau">${esc(c.lead)}</p>
-    <div class="gt-cot gt-cot-${c.cols.length}">${c.cols.map(([h, items]) => `<div><b>${esc(h)}</b><ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}</div>
-    <div class="gt-dang" id="gt-dang"></div>`;
-  $("#gt-cham").innerHTML = CARDS.map((_, i) => `<button type="button" aria-label="Thẻ ${i + 1}" aria-current="${i === idx}" data-i="${i}"></button>`).join("");
-  $("#gt-cham").querySelectorAll("button").forEach(b => b.addEventListener("click", () => go(Number(b.dataset.i), true)));
-  shownAt = Date.now();
-  live();
-}
-function live() {
-  const el = $("#gt-dang");
-  if (!el || !lastSnap) return;
-  const st = lastSnap.steps.filter(s => CARDS[idx].steps.includes(s.id) && (s.status === "dang_chay" || s.status === "xong"));
-  el.innerHTML = st.map(s => `<span class="nhan ${s.status === "xong" ? "tt-xong" : "tt-dang_chay"}">${s.status === "xong" ? "Xong" : "Đang chạy"}</span> ${esc(s.detail || "")}`).join("<br>");
-  el.hidden = !st.length;
-}
-function go(i, manual) {
-  idx = (i + CARDS.length) % CARDS.length;
-  if (manual) setAuto(false);
-  render();
-}
-function setAuto(on) {
-  auto = on;
-  $("#gt-tu-dong").checked = on;
-  if (on) follow(true);
-}
-/** Chọn thẻ theo bước đang chạy; giữ mỗi thẻ đủ lâu để đọc. Nhiều bước chạy cùng lúc (GA, SA) thì luân phiên. */
-function follow(force) {
-  if (!auto || !lastSnap) return;
-  const running = lastSnap.steps.filter(s => s.status === "dang_chay").map(s => s.id);
-  const done = lastSnap.steps.filter(s => s.status === "xong").map(s => s.id);
-  let targets = CARDS.map((c, i) => (c.steps.some(s => running.includes(s)) ? i : -1)).filter(i => i >= 0);
-  if (!targets.length && done.length) targets = [CARDS.findIndex(c => c.steps.includes(Math.max(...done)))];
-  if (!targets.length) return;
-  const since = Date.now() - shownAt;
-  if (!force && since < MIN_DWELL) return;
-  let next;
-  if (targets.includes(idx)) {
-    if (targets.length < 2 || since < ROTATE) return;
-    next = targets[(targets.indexOf(idx) + 1) % targets.length];
-  } else {
-    // đi lần lượt, không nhảy cóc qua thẻ chưa xem khi các bước đầu chạy quá nhanh
-    next = targets[0] > idx && !force ? Math.min(targets[0], idx + 1) : targets[0];
-  }
-  if (next !== idx) go(next, false);
-}
-
-window.Intro = {
-  start() {
-    $("#the-gioi-thieu").hidden = false;
-    lastSnap = null;
-    setAuto(true);
-    go(0, false);
-    clearInterval(timer);
-    timer = setInterval(() => follow(false), 1000);
-  },
-  update(snap) { lastSnap = snap; live(); follow(false); },
-  stop() { clearInterval(timer); timer = null; },
-};
-
-document.addEventListener("DOMContentLoaded", () => {});
-$("#gt-truoc").addEventListener("click", () => go(idx - 1, true));
-$("#gt-sau").addEventListener("click", () => go(idx + 1, true));
-$("#gt-tu-dong").addEventListener("change", e => setAuto(e.target.checked));
-$("#nut-xem-gioi-thieu").addEventListener("click", () => {
-  $("#the-gioi-thieu").hidden = false;
-  if (!timer) { setAuto(false); go(0, true); }
-  $("#the-gioi-thieu").scrollIntoView({ behavior: "smooth", block: "start" });
-});
-document.addEventListener("keydown", e => {
-  if ($("#the-gioi-thieu").hidden || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
-  if (e.key === "ArrowRight") go(idx + 1, true);
-  if (e.key === "ArrowLeft") go(idx - 1, true);
-});
 })();
 
 </script>
