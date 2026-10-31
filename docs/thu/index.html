@@ -6898,8 +6898,8 @@ function showResult(r) {
           <span class="kpi-phu">Dự báo ± 1,96 × RMSE (≈ 95%) · P05–P95 qua ${t1.n_seeds} seed: ${fmt(t1.p05, 1)} – ${fmt(t1.p95, 1)}</span></div>
       </div>
       ${r.alert_check && r.alert_check.mostly_stable ? `<p class="ghi-chu">${icon("info", "nho")}<span>Trên tập kiểm tra, ${fmt(r.alert_check.share_pct["Ổn định"], 1)}% số ngày có thay đổi thực tế nhỏ hơn ngưỡng – cảnh báo "Ổn định" là phổ biến; có thể giảm ngưỡng nếu cần nhạy hơn.</span></p>` : ""}
-    </section>
-    <section class="the" aria-labelledby="td-thuc-te" id="so-sanh-thuc-te"></section>`;
+      ${actualBlock(r)}
+    </section>`;
   } else {
     html += section("td-du-bao", "Kết quả", "Không có mô hình học máy", "Chỉ chạy ARIMA (chuẩn đối chiếu) nên không có dự báo chính. ARIMA dự báo: " +
       (c.ARIMA && c.ARIMA.t1 ? fmt(c.ARIMA.t1.mean, 2) : "—"), `<div class="hang-tai khong-in"><button class="nut nut-vien nut-nho" type="button" data-tai="json">${icon("download")} Tải kết quả (.json)</button></div>`);
@@ -6992,7 +6992,6 @@ function showResult(r) {
 
   html += `<p class="ghi-chu">${icon("info", "nho")}<span>Bản HTML dùng bộ máy viết lại bằng JavaScript (ARIMA, ANN, Random Forest, XGBoost, GA, SA) theo đúng quy trình của bản Python; vì bộ sinh số ngẫu nhiên khác nhau nên số liệu của các mô hình học máy có thể lệch nhẹ so với bản Python, nhưng cùng phương pháp.</span></p>`;
   el.innerHTML = html;
-  if (ch) renderActual(r);
 
   // ---------------------------------------------------------------- Vẽ biểu đồ
   const n = r.test.dates.length, labels = r.test.dates.concat(ch ? [ch.t1.date] : []), pad = a => a.concat(ch ? [null] : []);
@@ -7025,59 +7024,30 @@ function showResult(r) {
 
 // ======================================================================== So sánh với tỷ giá thực tế ngày dự báo
 
-const actualKey = d => "dbtg-thuc-te-" + d;
 const KNOWN_ACTUALS = (() => { try { return JSON.parse($("#thuc-te").textContent); } catch (e) { return {}; } })();   // nhập sẵn từ data/thuc_te.csv
-function renderActual(r) {
-  const box = $("#so-sanh-thuc-te"), ch = r.candidates[r.chosen_key], date = ch.t1.date, latest = r.table_4_1.last;
-  const known = ok(KNOWN_ACTUALS[date]) ? KNOWN_ACTUALS[date] : null;
-  let saved = known !== null ? known : r.actual_t1 && r.actual_t1.date === date ? r.actual_t1.value : null;
-  if (saved === null) { try { const v = localStorage.getItem(actualKey(date)); if (v) saved = Number(v); } catch (e) {} }
-  box.innerHTML = `
-    <div class="the-dau"><div><span class="nhan-muc">Kiểm chứng</span><h2 id="td-thuc-te">So sánh với thực tế ngày ${ngayVN(date)}</h2>
-      <p class="muted">${known !== null ? `Tỷ giá thực tế ngày ${ngayVN(date)} (mua chuyển khoản Vietcombank) đã được nhập sẵn: dự báo được đối chiếu tự động. Có thể sửa số bên dưới.`
-        : `Nhập tỷ giá thực tế của ngày ${ngayVN(date)} (cùng loại tỷ giá với file dữ liệu, ví dụ tỷ giá mua chuyển khoản Vietcombank) để xem các mô hình dự báo lệch bao nhiêu.`}</p></div></div>
-    <form class="hang-nut" id="form-thuc-te" novalidate>
-      <label class="truong" style="flex:0 1 260px"><span>Tỷ giá thực tế ngày ${ngayVN(date)}</span>
-        <input type="text" inputmode="decimal" id="o-thuc-te" placeholder="Ví dụ ${fmt(Math.round(latest), 0)}" value="${saved !== null ? saved : ""}"></label>
-      <button class="nut nut-chinh" type="submit">${icon("check")} So sánh</button>
-    </form>
-    <div id="kq-thuc-te" class="xep-doc" style="margin-top:16px"></div>`;
-  const show = v => {
-    const out = $("#kq-thuc-te");
-    if (!ok(v) || v <= 0) { out.innerHTML = v === null ? "" : `<div class="thong-bao thong-bao-loi" role="alert">${icon("x")}<div>Nhập một số tỷ giá hợp lệ, ví dụ 25640 hoặc 25.640.</div></div>`; return; }
-    r.actual_t1 = { date, value: v };
-    try { localStorage.setItem(actualKey(date), String(v)); } catch (e) {}
-    if (r.id) DB.put("results", { id: r.id, saved: new Date(r.id).toISOString(), result: r });
-    const thr = r.settings.alert_watch_pct, realChg = (v - latest) / latest * 100, realAlert = E.alert(realChg, thr);
-    const dir = x => (x > 0 ? "Tăng" : x < 0 ? "Giảm" : "Đứng yên");
-    const rows = r.ranking.filter(k => r.candidates[k].t1).map(k => ({ label: r.candidates[k].label, f: r.candidates[k].t1.mean, chosen: r.candidates[k].chosen, rmse: r.candidates[k].summary.RMSE }));
-    rows.push({ label: "Random walk (ngày mai = hôm nay)", f: latest, rw: true, rmse: r.random_walk.RMSE });
-    rows.forEach(x => { x.err = x.f - v; x.abs = Math.abs(x.err); x.pct = x.abs / v * 100; x.alert = E.alert((x.f - latest) / latest * 100, thr); });
-    const byAbs = rows.slice().sort((a, b) => a.abs - b.abs), best = byAbs[0];
-    const c = rows.find(x => x.chosen), inBand = v >= r.error_interval.lo && v <= r.error_interval.hi;
-    out.innerHTML = `
+
+/** Lệch của dự báo T+1 so với tỷ giá thực tế (nếu đã có), theo 3 chỉ số MAE, RMSE, MAPE. */
+function actualBlock(r) {
+  const ch = r.candidates[r.chosen_key], date = ch.t1.date, v = KNOWN_ACTUALS[date], s = ch.summary;
+  if (!ok(v)) return `<p class="ghi-chu">${icon("info", "nho")}<span>Chưa có tỷ giá thực tế ngày ${ngayVN(date)} để so sánh độ lệch.</span></p>`;
+  const e = ch.t1.mean - v, mae = Math.abs(e), rmse = Math.sqrt(e * e), mape = Math.abs(e / v) * 100;
+  const cmp = (x, y) => (x <= y ? `thấp hơn mức trung bình trên tập kiểm tra (${fmt(y, 2)})` : `cao hơn mức trung bình trên tập kiểm tra (${fmt(y, 2)})`);
+  return `
+    <div class="xep-doc" style="margin-top:16px">
+      <h3>So với thực tế ngày ${ngayVN(date)}: ${fmt(v, 2)} VND/USD (mua chuyển khoản Vietcombank)</h3>
+      <p>${esc(ch.label)} dự báo ${fmt(ch.t1.mean, 2)}, lệch <b>${e >= 0 ? "+" : "−"}${fmt(mae, 2)} VND</b> (${e > 0 ? "cao hơn" : e < 0 ? "thấp hơn" : "bằng"} thực tế).</p>
       <div class="luoi-kpi">
-        <div class="kpi"><span class="nhan-muc">Thực tế ${ngayVN(date)}</span><span class="kpi-so">${fmt(v, 2)}</span>
-          <span class="kpi-phu">${dir(v - latest)} ${fmt(Math.abs(v - latest), 2)} VND (${fmtPct(realChg, 3)}) so với ${fmt(latest, 0)} · thực tế: ${esc(realAlert)}</span></div>
-        <div class="kpi kpi-chinh"><span class="nhan-muc">${esc(c.label)} lệch</span><span class="kpi-so">${c.err >= 0 ? "+" : "−"}${fmt(c.abs, 2)}</span>
-          <span class="kpi-phu">VND · ${fmt(c.pct, 4)}% · ${c.err > 0 ? "dự báo cao hơn thực tế" : c.err < 0 ? "dự báo thấp hơn thực tế" : "trùng khớp"}</span></div>
-        <div class="kpi"><span class="nhan-muc">So với sai số thường gặp</span><span class="kpi-so vua">${c.abs <= c.rmse ? "Nhỏ hơn RMSE" : "Lớn hơn RMSE"}</span>
-          <span class="kpi-phu">|lệch| ${fmt(c.abs, 2)} so với RMSE ${fmt(c.rmse, 2)} trên tập kiểm tra · ${inBand ? "nằm trong" : "nằm ngoài"} khoảng ±1,96 × RMSE</span></div>
-        <div class="kpi"><span class="nhan-muc">Cảnh báo</span><span class="kpi-so vua">${c.alert === realAlert ? "Đúng" : "Chưa đúng"}</span>
-          <span class="kpi-phu">Dự báo: ${esc(c.alert)} · thực tế: ${esc(realAlert)} (ngưỡng ${fmt(thr, 2)}%)</span></div>
+        <div class="kpi"><span class="nhan-muc">MAE – sai số tuyệt đối</span><span class="kpi-so vua">${fmt(mae, 2)} VND</span>
+          <span class="kpi-phu">${cmp(mae, s.MAE)}</span></div>
+        <div class="kpi"><span class="nhan-muc">RMSE – căn sai số bình phương</span><span class="kpi-so vua">${fmt(rmse, 2)} VND</span>
+          <span class="kpi-phu">${cmp(rmse, s.RMSE)}</span></div>
+        <div class="kpi"><span class="nhan-muc">MAPE – sai số phần trăm</span><span class="kpi-so vua">${fmt(mape, 4)}%</span>
+          <span class="kpi-phu">${mape <= s.MAPE ? "thấp hơn" : "cao hơn"} mức trung bình trên tập kiểm tra (${fmt(s.MAPE, 4)}%)</span></div>
+        <div class="kpi"><span class="nhan-muc">Cảnh báo</span><span class="kpi-so vua">${ch.t1.alert === E.alert((v - r.table_4_1.last) / r.table_4_1.last * 100, r.settings.alert_watch_pct) ? "Đúng" : "Chưa đúng"}</span>
+          <span class="kpi-phu">Dự báo: ${esc(ch.t1.alert)} · thực tế: ${esc(E.alert((v - r.table_4_1.last) / r.table_4_1.last * 100, r.settings.alert_watch_pct))}</span></div>
       </div>
-      ${table(["Mô hình", ["Dự báo"], ["Lệch (dự báo − thực tế)"], ["|Lệch| %"], "Cảnh báo dự báo", ["RMSE tập kiểm tra"]], byAbs.map(x =>
-        `<tr class="${x.chosen ? "dong-chon" : x.rw ? "dong-rw" : ""}"><td class="tieu-de-o">${esc(x.label)} ${x.chosen ? '<span class="nhan nhan-chon">Được chọn</span>' : ""}</td>
-          <td class="so">${fmt(x.f, 2)}</td><td class="so ${x === best ? "duong" : ""}">${x.err >= 0 ? "+" : "−"}${fmt(x.abs, 2)}</td><td class="so">${fmt(x.pct, 4)}</td>
-          <td>${esc(x.alert)} ${x.alert === realAlert ? icon("check", "nho") : ""}</td><td class="so">${fmt(x.rmse, 2)}</td></tr>`))}
-      <p class="ghi-chu">${icon("info", "nho")}<span>Gần thực tế nhất: <b>${esc(best.label)}</b> (lệch ${fmt(best.abs, 2)} VND). Một ngày đơn lẻ chỉ để minh họa; độ chính xác của mô hình được đánh giá bằng RMSE trên cả tập kiểm tra.</span></p>`;
-  };
-  $("#form-thuc-te").addEventListener("submit", e => {
-    e.preventDefault();
-    const raw = $("#o-thuc-te").value.trim();
-    show(raw ? E.parseNumber(raw) : null);
-  });
-  if (saved !== null) show(saved);
+      <p class="ghi-chu">${icon("info", "nho")}<span>Với một ngày, MAE và RMSE đều bằng độ lệch tuyệt đối |dự báo − thực tế|; MAPE = độ lệch chia cho tỷ giá thực tế. Con số trong ngoặc là sai số trung bình của mô hình trên 20% dữ liệu kiểm tra.</span></p>
+    </div>`;
 }
 
 function rmseBars(r) {
