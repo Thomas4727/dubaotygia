@@ -149,7 +149,28 @@
       <div class="tong-so"><b id="tt-phan-tram">0%</b><span>Đã chạy <b id="tt-da-chay">0 giây</b></span><span>Còn khoảng <b id="tt-con-lai">—</b></span></div>
       <div class="thanh-tien-do" role="progressbar" aria-label="Tiến độ" aria-valuemin="0" aria-valuemax="100" id="tt-thanh"><div style="width:0%"></div></div>
     </div>
-    <ol class="stepper" id="tt-cac-buoc"></ol>
+    <div class="cong-cu-tom-tat" aria-label="Công cụ làm gì">
+      <div><span class="nhan-muc">Đầu vào</span><b>Chuỗi tỷ giá USD/VND lịch sử</b><span>File CSV bất kỳ: Vietcombank, Investing.com, Yahoo Finance… · ngưỡng cảnh báo do người dùng đặt</span></div>
+      <svg class="icon mui-ten" aria-hidden="true"><use href="#i-chevron"/></svg>
+      <div><span class="nhan-muc">Xử lý tự động</span><b>12 bước khép kín</b><span>Làm sạch → kiểm định → ARIMA, ANN, Random Forest, XGBoost → tối ưu GA / SA → chọn mô hình tốt nhất</span></div>
+      <svg class="icon mui-ten" aria-hidden="true"><use href="#i-chevron"/></svg>
+      <div><span class="nhan-muc">Đầu ra quản lý</span><b>Dự báo ngày làm việc tiếp theo</b><span>Tỷ giá dự báo, khoảng sai số, cảnh báo Tăng / Giảm / Ổn định, Bảng 4.1–4.6</span></div>
+    </div>
+    <div class="tien-trinh-luoi">
+      <ol class="stepper" id="tt-cac-buoc"></ol>
+      <aside class="thuyet-minh" id="thuyet-minh" aria-live="polite" aria-label="Giải thích bước">
+        <div class="tm-dau">
+          <span class="nhan-muc" id="tm-nhan">Bước đang chạy</span>
+          <span class="tm-nut">
+            <button class="nut nut-icon" type="button" id="tm-truoc" aria-label="Bước trước"><svg class="icon" aria-hidden="true" style="transform:rotate(90deg)"><use href="#i-chevron"/></svg></button>
+            <button class="nut nut-icon" type="button" id="tm-sau" aria-label="Bước sau"><svg class="icon" aria-hidden="true" style="transform:rotate(-90deg)"><use href="#i-chevron"/></svg></button>
+          </span>
+        </div>
+        <h3 id="tm-tieu-de"></h3>
+        <div id="tm-noi-dung" class="tm-noi-dung"></div>
+        <button class="nut nut-vien nut-nho" type="button" id="tm-theo" hidden>Theo bước đang chạy</button>
+      </aside>
+    </div>
     <details style="margin-top:12px">
       <summary><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg> Nhật ký chi tiết</summary>
       <pre class="nhat-ky" id="tt-nhat-ky"></pre>

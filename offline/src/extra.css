@@ -65,3 +65,34 @@ body { background: var(--bg); }
 .chi-link { display: none; }
 body.ban-link .chi-link { display: block; flex-basis: 100%; }
 body.ban-link [data-tai] { display: none; }
+
+/* Thuyết minh trong lúc chạy: tóm tắt công cụ + giải thích từng bước */
+.cong-cu-tom-tat { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: var(--s3); align-items: center; margin: var(--s4) 0; }
+.cong-cu-tom-tat > div { display: grid; gap: 4px; padding: var(--s3) var(--s4); border-radius: var(--r-ctl); background: var(--surface-2);
+  border: 1px solid var(--border-soft); height: 100%; }
+.cong-cu-tom-tat b { font-size: 15px; }
+.cong-cu-tom-tat span:not(.nhan-muc) { font-size: 13px; color: var(--text-muted); line-height: 1.45; }
+.cong-cu-tom-tat .mui-ten { transform: rotate(-90deg); color: var(--text-muted); }
+.tien-trinh-luoi { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--s4); align-items: start; }
+.tien-trinh-luoi .stepper { margin-top: 0; }
+.thuyet-minh { position: sticky; top: 80px; display: grid; gap: var(--s3); padding: var(--s4) var(--s5); border-radius: var(--r-card);
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--border)); background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+.tm-dau { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); }
+.tm-nut { display: flex; gap: 4px; }
+.thuyet-minh h3 { font-size: 19px; text-wrap: balance; }
+.tm-noi-dung { display: grid; gap: var(--s3); font-size: 15.5px; line-height: 1.6; }
+.tm-noi-dung p { margin: 0; }
+.tm-noi-dung ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.tm-noi-dung .vi-du { font-size: 14px; color: var(--text-muted); border-left: 3px solid var(--border); padding-left: var(--s3); }
+.tm-noi-dung .so-lieu-song { font: 500 13.5px/1.5 var(--font-data); color: var(--text); background: var(--surface); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; }
+.buoc[data-buoc] { cursor: pointer; }
+.buoc.dang-xem { outline: 2px solid var(--primary); outline-offset: -1px; }
+@media (max-width: 1080px) {
+  .tien-trinh-luoi { grid-template-columns: minmax(0, 1fr); }
+  .thuyet-minh { position: static; order: -1; }
+  .cong-cu-tom-tat { grid-template-columns: minmax(0, 1fr); }
+  .cong-cu-tom-tat .mui-ten { transform: none; justify-self: center; }
+}
+@media print { .thuyet-minh, .cong-cu-tom-tat { display: none; } }
+.vung-tha > span:last-child { min-width: 0; }
+.vung-tha b { overflow-wrap: anywhere; }

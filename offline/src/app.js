@@ -472,6 +472,7 @@ function confirmFull(est, threads) {
 async function startRun(cfg, runner, est) {
   const card = $("#the-tien-trinh");
   card.hidden = false;
+  tm.follow = true;
   $("#tt-luu-y").hidden = false;
   $("#nut-huy").hidden = false;
   card.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -512,6 +513,66 @@ $("#nut-huy").addEventListener("click", async () => {
   state.pool.cancel();
 });
 
+// Thuyết minh từng bước (đọc to khi trình bày trong lúc web chạy)
+const STEP_INFO = {
+  1: { p: ["Người dùng chỉ cần đưa vào một file tỷ giá. Công cụ tự nhận ra đâu là cột ngày, đâu là cột tỷ giá, kể cả khi tên cột khác nhau."],
+       li: ["Đọc được file Vietcombank, Investing.com (Date, Price), Yahoo Finance (Date, Close).", "Ngày viết kiểu 28/10/2026, 2026-10-28 hay 10/28/2026 đều được."] },
+  2: { p: ["Dữ liệu thật thường có lỗi. Công cụ làm sạch theo 6 bước của bài trước khi đưa vào mô hình."],
+       li: ["Chuẩn hóa ngày, sắp xếp theo thời gian, bỏ dòng trùng ngày.", "Bỏ giá trị trống, âm hoặc bằng 0.",
+            "Bỏ điểm bất thường: nhảy hơn 1% rồi hôm sau quay về chỗ cũ (thường là lỗi nhập liệu).", "Ngày lễ, cuối tuần không có giao dịch thì để trống, không tự bịa số."] },
+  3: { p: ["Trước khi dự báo cần biết chuỗi tỷ giá có \"dừng\" hay không, tức là có dao động quanh một mức cố định hay không."],
+       li: ["Kiểm định ADF và Phillips–Perron (Bảng 4.2).", "Tỷ giá USD/VND thường không dừng nhưng mức thay đổi hằng ngày thì dừng: chuỗi I(1).",
+            "Vì vậy các mô hình dự báo mức thay đổi Δy rồi cộng lại vào tỷ giá hôm nay."] },
+  4: { p: ["Biến chuỗi tỷ giá thành bảng dữ liệu cho học máy, rồi chia dữ liệu theo thời gian."],
+       li: ["Đặc trưng: các mức thay đổi trễ (lag), lợi suất, trung bình trượt, độ lệch chuẩn trượt, momentum.",
+            "80% đầu để xây dựng mô hình, 20% cuối để kiểm tra. Không xáo trộn: mô hình không được \"nhìn thấy tương lai\".",
+            "Phần xây dựng lại chia thành các fold kiểm tra chéo cửa sổ mở rộng để chấm điểm cấu hình."] },
+  5: { p: ["ARIMA là mô hình kinh tế lượng truyền thống, dùng làm mốc để so sánh với học máy."],
+       li: ["Thử 25 cấu trúc ARIMA(p, d, q) với p, q từ 0 đến 4.", "Chọn cấu trúc có AIC nhỏ nhất (vừa khớp dữ liệu, vừa không quá phức tạp).",
+            "Dự báo từng ngày trên 20% dữ liệu cuối, kèm khoảng dự báo 95%."] },
+  6: { p: ["Ba mô hình học máy chạy với cấu hình mặc định để có mốc \"trước tối ưu\"."],
+       li: ["ANN: mạng nơ-ron nhiều lớp, học quan hệ phi tuyến.", "Random Forest: trung bình của hàng trăm cây quyết định.",
+            "XGBoost: các cây được xây nối tiếp, cây sau sửa sai số của cây trước.", "Mỗi mô hình chạy lặp nhiều lần với hạt giống ngẫu nhiên khác nhau để đo độ ổn định."] },
+  7: { p: ["Kết quả của học máy phụ thuộc nhiều vào siêu tham số (số cây, độ sâu, tốc độ học…). Thuật toán di truyền GA tự tìm bộ siêu tham số tốt."],
+       li: ["Mỗi cấu hình là một \"cá thể\"; cả nhóm cá thể là một quần thể.", "Chọn lọc cá thể tốt, lai ghép, đột biến để tạo thế hệ mới.",
+            "Điểm của mỗi cá thể = RMSE trung bình trên các fold kiểm tra chéo, chỉ dùng dữ liệu trước phần kiểm tra."] },
+  8: { p: ["Mô phỏng luyện kim SA tìm cấu hình theo cách khác: đi từng bước từ cấu hình mặc định."],
+       li: ["Mỗi bước thử một cấu hình \"lân cận\" (đổi 1–2 siêu tham số).", "Tốt hơn thì nhận; kém hơn vẫn có thể nhận với một xác suất, để không bị kẹt ở lời giải chưa tốt.",
+            "Xác suất đó giảm dần theo \"nhiệt độ\", giống kim loại nguội dần.", "GA và SA dùng cùng không gian tìm kiếm, cùng hàm mục tiêu và cùng số lần đánh giá, nên so sánh công bằng."] },
+  9: { p: ["Đến lúc này mới dùng 20% dữ liệu cuối mà mô hình chưa từng thấy để chấm điểm thật."],
+       li: ["So sánh trước và sau tối ưu cho từng mô hình (Bảng 4.5).", "Mỗi ứng viên chạy lặp nhiều lần, lấy RMSE, MAE, MAPE trung bình và độ lệch chuẩn."] },
+  10: { p: ["Chọn mô hình có RMSE trung bình thấp nhất trong các ứng viên ANN, Random Forest, XGBoost (mặc định, GA, SA)."],
+        li: ["RMSE: sai số trung bình tính bằng VND/USD, phạt nặng các lần dự báo sai nhiều.", "ARIMA và Random walk (\"ngày mai bằng hôm nay\") chỉ để đối chiếu, không được chọn."] },
+  11: { p: ["Mô hình được chọn được huấn luyện lại, rồi dự báo tỷ giá ngày làm việc tiếp theo (T+1)."],
+        li: ["Chạy nhiều lần với hạt giống khác nhau, lấy trung bình làm dự báo.", "Kèm khoảng P05–P95 giữa các lần chạy và khoảng ±1,96 × RMSE theo sai số lịch sử."] },
+  12: { p: ["Biến con số dự báo thành thông tin quản trị dễ dùng."],
+        li: ["Nếu thay đổi dự báo nhỏ hơn ngưỡng người dùng đặt: Ổn định; ngược lại: Tăng hoặc Giảm.", "Xuất Bảng 4.6 (16 trường), biểu đồ, kết luận giả thuyết H1–H3 và file kết quả."] },
+};
+const tm = { follow: true, view: 1, last: null };
+function renderNarration(s) {
+  if (s) tm.last = s;
+  s = tm.last;
+  if (!s) return;
+  const running = s.steps.filter(x => x.status === "dang_chay").map(x => x.id);
+  const done = s.steps.filter(x => x.status === "xong").map(x => x.id);
+  const cur = running.length ? running[0] : (done.length ? done[done.length - 1] : 1);
+  if (tm.follow) tm.view = cur;
+  const st = s.steps[tm.view - 1], info = STEP_INFO[tm.view];
+  $("#tm-nhan").textContent = tm.view === cur && running.includes(cur) ? `Bước ${tm.view} / 12 · đang chạy` : `Bước ${tm.view} / 12 · ${STATUS_TEXT[st.status] || ""}`;
+  $("#tm-tieu-de").textContent = st.name;
+  $("#tm-noi-dung").innerHTML = info.p.map(t => `<p>${esc(t)}</p>`).join("") + `<ul>${info.li.map(t => `<li>${esc(t)}</li>`).join("")}</ul>` +
+    (st.detail && st.status !== "cho" ? `<div class="so-lieu-song">${esc(st.detail)}</div>` : "");
+  $("#tm-truoc").disabled = tm.view <= 1;
+  $("#tm-sau").disabled = tm.view >= 12;
+  $("#tm-theo").hidden = tm.follow;
+  $$("#tt-cac-buoc .buoc").forEach(li => li.classList.toggle("dang-xem", Number(li.dataset.buoc) === tm.view));
+}
+const tmGo = v => { tm.follow = false; tm.view = Math.max(1, Math.min(12, v)); renderNarration(); };
+$("#tm-truoc").addEventListener("click", () => tmGo(tm.view - 1));
+$("#tm-sau").addEventListener("click", () => tmGo(tm.view + 1));
+$("#tm-theo").addEventListener("click", () => { tm.follow = true; renderNarration(); });
+$("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("[data-buoc]"); if (li) tmGo(Number(li.dataset.buoc)); });
+
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
 function renderProgress(s) {
   $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}`;
@@ -521,7 +582,7 @@ function renderProgress(s) {
   $("#tt-thanh > div").style.width = s.percent + "%";
   $("#tt-thanh").setAttribute("aria-valuenow", Math.round(s.percent));
   $("#tt-cac-buoc").innerHTML = s.steps.map(st => `
-    <li class="buoc buoc-${st.status}">
+    <li class="buoc buoc-${st.status}" data-buoc="${st.id}" title="Bấm để xem giải thích bước này">
       <span class="buoc-so">${st.status === "xong" ? icon("check", "nho") : st.status === "loi" ? "!" : st.id}</span>
       <div class="buoc-noi-dung">
         <div class="buoc-dau"><b>${esc(st.name)}</b><span class="nhan tt-${st.status === "huy" ? "loi" : st.status}">${STATUS_TEXT[st.status] || st.status}${st.seconds !== null && st.status === "xong" ? " · " + fmtTime(st.seconds) : ""}</span></div>
@@ -533,6 +594,7 @@ function renderProgress(s) {
   const log = $("#tt-nhat-ky"), atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 8;
   log.textContent = s.log.join("\n");
   if (atEnd) log.scrollTop = log.scrollHeight;
+  renderNarration(s);
 }
 
 // ======================================================================== Kết quả
