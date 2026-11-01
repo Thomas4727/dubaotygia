@@ -540,14 +540,6 @@ body.ban-link [data-tai] { display: none; }
 @media (prefers-reduced-motion: reduce) { .tc-ray > span { transition: none; } }
 /* Khung giải thích bên phải dính ngay dưới thanh chạy (thanh chạy cũng dính đầu màn hình) */
 @media (min-width: 1081px) { .thuyet-minh { top: var(--tc-cao, 260px); } }
-/* Thanh chạy: tên ngắn dưới số bước, ô tô dần màu xanh lá */
-.tc-dang_chay .tc-ray > span { background: var(--positive); }
-.tc-dang_chay .tc-ray { outline-color: color-mix(in srgb, var(--positive) 55%, transparent); }
-.tc-ten-ngan { font-size: 12.5px; line-height: 1.3; text-align: center; color: var(--text-muted); text-wrap: balance; }
-.tc-xong .tc-ten-ngan { color: var(--text); }
-.tc-dang_chay .tc-ten-ngan, .tc-dang_chay .tc-so { color: var(--positive); font-weight: 700; }
-.tc-doan li { align-content: start; }
-@media (max-width: 720px) { .tc-doan { grid-template-columns: repeat(6, minmax(0, 1fr)); row-gap: var(--s2); } }
 
 </style>
 </head>
@@ -707,7 +699,7 @@ body.ban-link [data-tai] { display: none; }
       <div class="tong-so"><b id="tt-phan-tram">0%</b><span>Đã chạy <b id="tt-da-chay">0 giây</b></span><span>Còn khoảng <b id="tt-con-lai">—</b></span></div>
       <div class="thanh-tien-do" role="progressbar" aria-label="Tiến độ" aria-valuemin="0" aria-valuemax="100" id="tt-thanh"><div style="width:0%"></div></div>
     </div>
-    <div class="tien-trinh-luoi" hidden>
+    <div class="tien-trinh-luoi">
       <ol class="stepper" id="tt-cac-buoc"></ol>
       <aside class="thuyet-minh" id="thuyet-minh" aria-live="polite" aria-label="Giải thích bước">
         <div class="tm-dau">
@@ -6910,7 +6902,7 @@ async function startRun(cfg, runner, est) {
       const box = document.createElement("div");
       box.className = "thong-bao thong-bao-loi"; box.setAttribute("role", "alert");
       box.innerHTML = `${icon("x")}<div><b>Quy trình dừng vì lỗi.</b> ${esc(e.message || e)}</div>`;
-      $("#thanh-chay").after(box);
+      $("#tt-cac-buoc").before(box);
     }
   } finally {
     runner.dispose();
@@ -6986,9 +6978,6 @@ $("#tm-theo").addEventListener("click", () => { tm.follow = true; renderNarratio
 $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("[data-buoc]"); if (li) tmGo(Number(li.dataset.buoc)); });
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
-const TEN_NGAN = { 1: "Nhận dữ liệu", 2: "Làm sạch", 3: "Kiểm định", 4: "Chia dữ liệu", 5: "ARIMA", 6: "Mô hình mặc định",
-  7: "Tối ưu GA", 8: "Tối ưu SA", 9: "Đánh giá", 10: "Chọn mô hình", 11: "Dự báo T+1", 12: "Cảnh báo" };
-
 function renderBar(s) {
   // khung giải thích bên phải dính ngay dưới thanh chạy (thanh cao lên khi GA và SA chạy cùng lúc)
   requestAnimationFrame(() => document.documentElement.style.setProperty("--tc-cao", ($("#thanh-chay").offsetHeight + 76) + "px"));
@@ -6997,7 +6986,7 @@ function renderBar(s) {
   $("#tc-con-lai").textContent = s.percent >= 100 ? "0 giây" : fmtTime(s.eta);
   $("#tc-doan").innerHTML = s.steps.map(st => `<li class="tc-${st.status}" title="${esc(st.id + ". " + st.name)}">
       <span class="tc-ray"><span style="width:${st.status === "xong" ? 100 : st.status === "dang_chay" ? Math.max(6, st.frac * 100) : 0}%"></span></span>
-      <span class="tc-so">${st.id}</span><span class="tc-ten-ngan">${TEN_NGAN[st.id]}</span></li>`).join("");
+      <span class="tc-so">${st.id}</span></li>`).join("");
   const running = s.steps.filter(x => x.status === "dang_chay");
   const done = s.steps.filter(x => x.status === "xong");
   const show = running.length ? running : done.slice(-1);
@@ -7005,7 +6994,7 @@ function renderBar(s) {
     <div class="tc-buoc">
       <div class="tc-ten"><span class="tc-nhan">Bước ${st.id}/12</span><b>${esc(st.name)}</b>
         <span class="nhan tt-${st.status}">${st.status === "xong" ? "Xong" : "Đang chạy · " + Math.round(st.frac * 100) + "%"}</span></div>
-      ${st.detail ? `<div class="tc-chi-tiet">${esc(st.detail)}</div>` : ""}
+      ${st.detail ? `<div class="tc-chi-tiet">${esc(st.detail)}</div>` : `<div class="tc-chi-tiet muted">${esc(st.caption)}</div>`}
     </div>`).join("");
 }
 
