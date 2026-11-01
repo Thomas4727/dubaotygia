@@ -21,11 +21,13 @@ Python, SQL Server, Cloudflare hay bật máy chủ.
 
 1. Gửi file `du_bao_ty_gia.html` cho người khác (Zalo, email, Google Drive…), hoặc họ tải từ GitHub.
 2. Người nhận bấm đúp mở bằng **Chrome hoặc Edge**, chọn file tỷ giá `.csv` của mình, bấm **Chạy dự báo**.
-3. Kết quả hiện ngay trên trang, có nút tải `.json` (mở lại sau), `.csv`, In / lưu PDF.
+3. Kết quả hiện ngay trên trang; nếu đã có tỷ giá thực tế của ngày được dự báo (`data/thuc_te.csv`) thì web tự
+   so sánh độ lệch theo MAE, RMSE, MAPE.
 
 Ghi chú:
-- **Chạy thử** mất khoảng 1–3 phút, **Chạy đầy đủ** mất nhiều giờ (giống bản Python). Phải giữ tab mở. Tiến độ
-  được lưu trong trình duyệt: lỡ đóng tab thì mở lại, chọn đúng file và cùng thiết lập, bấm Chạy để chạy tiếp.
+- Chỉ có một chế độ **Chạy dự báo** (khoảng 1,5–2 phút, rút gọn so với 30 lần chạy của bài). Mỗi lần bấm đều tính
+  lại từ đầu; seed cố định nên chạy lại ra cùng kết quả. Thanh chạy 12 bước dính đầu màn hình cho biết bước đang chạy.
+- Nút "Dùng dữ liệu mẫu Vietcombank": tỷ giá chuyển khoản VCB 19/04/2021 – 14/07/2026 (trích từ dữ liệu của bài).
 - Dữ liệu không gửi đi đâu. Kết quả chỉ lưu trong trình duyệt của người chạy.
 - File Excel: lưu thành CSV trước (File → Save As → CSV UTF-8).
 - Bản JS dùng bộ sinh số ngẫu nhiên khác Python nên số liệu ANN/RF/XGBoost lệch nhẹ. Thống kê mô tả, ADF/PP và
