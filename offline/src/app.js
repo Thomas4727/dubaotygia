@@ -465,7 +465,7 @@ async function startRun(cfg, runner, est) {
       const box = document.createElement("div");
       box.className = "thong-bao thong-bao-loi"; box.setAttribute("role", "alert");
       box.innerHTML = `${icon("x")}<div><b>Quy trình dừng vì lỗi.</b> ${esc(e.message || e)}</div>`;
-      $("#tt-cac-buoc").before(box);
+      $("#thanh-chay").after(box);
     }
   } finally {
     runner.dispose();
@@ -541,6 +541,9 @@ $("#tm-theo").addEventListener("click", () => { tm.follow = true; renderNarratio
 $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("[data-buoc]"); if (li) tmGo(Number(li.dataset.buoc)); });
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
+const TEN_NGAN = { 1: "Nhận dữ liệu", 2: "Làm sạch", 3: "Kiểm định", 4: "Chia dữ liệu", 5: "ARIMA", 6: "Mô hình mặc định",
+  7: "Tối ưu GA", 8: "Tối ưu SA", 9: "Đánh giá", 10: "Chọn mô hình", 11: "Dự báo T+1", 12: "Cảnh báo" };
+
 function renderBar(s) {
   // khung giải thích bên phải dính ngay dưới thanh chạy (thanh cao lên khi GA và SA chạy cùng lúc)
   requestAnimationFrame(() => document.documentElement.style.setProperty("--tc-cao", ($("#thanh-chay").offsetHeight + 76) + "px"));
@@ -549,7 +552,7 @@ function renderBar(s) {
   $("#tc-con-lai").textContent = s.percent >= 100 ? "0 giây" : fmtTime(s.eta);
   $("#tc-doan").innerHTML = s.steps.map(st => `<li class="tc-${st.status}" title="${esc(st.id + ". " + st.name)}">
       <span class="tc-ray"><span style="width:${st.status === "xong" ? 100 : st.status === "dang_chay" ? Math.max(6, st.frac * 100) : 0}%"></span></span>
-      <span class="tc-so">${st.id}</span></li>`).join("");
+      <span class="tc-so">${st.id}</span><span class="tc-ten-ngan">${TEN_NGAN[st.id]}</span></li>`).join("");
   const running = s.steps.filter(x => x.status === "dang_chay");
   const done = s.steps.filter(x => x.status === "xong");
   const show = running.length ? running : done.slice(-1);
@@ -557,7 +560,7 @@ function renderBar(s) {
     <div class="tc-buoc">
       <div class="tc-ten"><span class="tc-nhan">Bước ${st.id}/12</span><b>${esc(st.name)}</b>
         <span class="nhan tt-${st.status}">${st.status === "xong" ? "Xong" : "Đang chạy · " + Math.round(st.frac * 100) + "%"}</span></div>
-      ${st.detail ? `<div class="tc-chi-tiet">${esc(st.detail)}</div>` : `<div class="tc-chi-tiet muted">${esc(st.caption)}</div>`}
+      ${st.detail ? `<div class="tc-chi-tiet">${esc(st.detail)}</div>` : ""}
     </div>`).join("");
 }
 
