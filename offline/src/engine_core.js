@@ -268,6 +268,10 @@ E.parseTable = function (table) {
   if (days.filter(d => d !== null).length < 0.8 * raw.length)
     throw new DataError(`Cột '${table.header[di]}' không đúng định dạng ngày (dd/mm/yyyy, yyyy-mm-dd hoặc mm/dd/yyyy).`);
   const rates = raw.map(r => E.parseNumber(r[ri] ?? ""));
+  // Bảng tính (Google Sheets, Excel) hay bỏ số 0 cuối của hàng nghìn: 26.090 thành "26,09", 23.000 thành "23".
+  // Lấy trung vị của các giá trị ≥ 1.000 làm mốc; giá trị nhỏ hơn 1/100 mốc mà nhân 1.000 thì về đúng tầm -> nhân 1.000.
+  const big = rates.filter(v => Number.isFinite(v) && v >= 1000).sort((a, b) => a - b), med = big[Math.floor(big.length / 2)];
+  if (big.length) rates.forEach((v, i) => { if (v < med / 100 && v * 1000 > med / 3 && v * 1000 < med * 3) rates[i] = Math.round(v * 1000); });
   if (rates.filter(Number.isFinite).length < 0.8 * raw.length)
     throw new DataError(`Cột '${table.header[ri]}' không phải số tỷ giá (ví dụ 26345 hoặc 26.345,50).`);
   return { rows: raw.map((_, i) => ({ day: days[i], rate: rates[i] })),

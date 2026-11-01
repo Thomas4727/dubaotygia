@@ -14,7 +14,7 @@ PAGES_OUT = ROOT / "docs" / "index.html"          # GitHub Pages: https://thomas
 LINK_URL = "https://claude.ai/artifact/9uTzg9zKAm8HkhriojK68E"
 LINK_TITLE = "dubaotygia"
 LINK_OUT = ROOT / "offline" / "ban_link.html"
-SAMPLE = ROOT / "data" / "tygia_USDVND_Vietcombank_chuyenkhoan_5nam.csv"   # dữ liệu mẫu nhúng vào trang
+SAMPLE = ROOT / "data" / "tygia_USDVND_VCB_19042021_14072026.csv"   # dữ liệu mẫu nhúng vào trang
 ACTUALS = ROOT / "data" / "thuc_te.csv"     # tỷ giá thực tế các ngày đã qua, để tự so sánh với dự báo
 ENGINE_PARTS = ["engine_core.js", "engine_arima.js", "engine_models.js", "engine_search.js", "engine_pipeline.js"]
 
