@@ -99,3 +99,30 @@ body.ban-link [data-tai] { display: none; }
 
 .the-dau > div { min-width: 0; }
 .nhan-muc { overflow-wrap: anywhere; flex-wrap: wrap; }
+
+/* Thanh chạy 12 bước: dính ở đầu màn hình khi đang chạy, chữ to để trình chiếu */
+.thanh-chay { position: sticky; top: 64px; z-index: 15; display: grid; gap: var(--s3); margin: var(--s4) calc(-1 * var(--s5)) 0;
+  padding: var(--s4) var(--s5); background: var(--surface); border-block: 1px solid var(--border-soft); box-shadow: var(--shadow); }
+.tc-dau { display: flex; flex-wrap: wrap; gap: var(--s5); align-items: baseline; font-size: 14px; color: var(--text-muted); }
+.tc-dau > b { font: 700 28px var(--font-data); color: var(--text); }
+.tc-dau span b { color: var(--text); font-family: var(--font-data); }
+.tc-doan { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+.tc-doan li { display: grid; gap: 4px; justify-items: center; }
+.tc-ray { display: block; width: 100%; height: 12px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.tc-ray > span { display: block; height: 100%; background: var(--primary); border-radius: inherit; transition: width var(--t-state) ease-out; }
+.tc-xong .tc-ray > span { background: var(--positive); }
+.tc-bo_qua .tc-ray { background: repeating-linear-gradient(45deg, var(--surface-2) 0 4px, transparent 4px 8px); }
+.tc-loi .tc-ray > span, .tc-huy .tc-ray > span { background: var(--negative); width: 100% !important; }
+.tc-so { font: 600 12px var(--font-data); color: var(--text-muted); }
+.tc-dang_chay .tc-so { color: var(--accent-text); }
+.tc-dang_chay .tc-ray { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 1px; }
+.tc-hien-tai { display: grid; gap: var(--s2); min-height: 64px; }
+.tc-buoc { display: grid; gap: 2px; }
+.tc-ten { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.tc-ten b { font-size: 19px; }
+.tc-nhan { font: 600 13px var(--font-data); color: var(--accent-text); }
+.tc-chi-tiet { font: 13px/1.5 var(--font-data); color: var(--text); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 600px) { .thanh-chay { margin-inline: calc(-1 * var(--s4)); padding: var(--s3) var(--s4); }
+  .tc-dau > b { font-size: 22px; } .tc-ten b { font-size: 16px; } .tc-doan { gap: 2px; } }
+@media (prefers-reduced-motion: reduce) { .tc-ray > span { transition: none; } }

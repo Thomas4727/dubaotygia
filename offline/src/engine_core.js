@@ -17,7 +17,7 @@ E.MODES = {
     n_baseline_seeds: 3, n_hpo_runs: 1, budget: 30, ga_pop_size: 6, ga_max_generations: 5,
     sa_t0_samples: 5, sa_moves_per_temp: 5, n_folds: 3, n_test_seeds_baseline: 3,
     n_eval_seeds_per_config: 3, n_refit_seeds: 3,
-    caps: { ANN_epochs: 150, RF_n_estimators: 300, XGB_n_estimators: 500 },
+    caps: { ANN_epochs: 100, RF_n_estimators: 300, XGB_n_estimators: 500 },   // ANN 100 epoch: chạy xong trong khoảng 2 phút
   },
   chay_day_du: {
     n_baseline_seeds: 30, n_hpo_runs: 30, budget: 300, ga_pop_size: 20, ga_max_generations: 15,

@@ -512,6 +512,33 @@ body.ban-link [data-tai] { display: none; }
 .the-dau > div { min-width: 0; }
 .nhan-muc { overflow-wrap: anywhere; flex-wrap: wrap; }
 
+/* Thanh chạy 12 bước: dính ở đầu màn hình khi đang chạy, chữ to để trình chiếu */
+.thanh-chay { position: sticky; top: 64px; z-index: 15; display: grid; gap: var(--s3); margin: var(--s4) calc(-1 * var(--s5)) 0;
+  padding: var(--s4) var(--s5); background: var(--surface); border-block: 1px solid var(--border-soft); box-shadow: var(--shadow); }
+.tc-dau { display: flex; flex-wrap: wrap; gap: var(--s5); align-items: baseline; font-size: 14px; color: var(--text-muted); }
+.tc-dau > b { font: 700 28px var(--font-data); color: var(--text); }
+.tc-dau span b { color: var(--text); font-family: var(--font-data); }
+.tc-doan { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+.tc-doan li { display: grid; gap: 4px; justify-items: center; }
+.tc-ray { display: block; width: 100%; height: 12px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.tc-ray > span { display: block; height: 100%; background: var(--primary); border-radius: inherit; transition: width var(--t-state) ease-out; }
+.tc-xong .tc-ray > span { background: var(--positive); }
+.tc-bo_qua .tc-ray { background: repeating-linear-gradient(45deg, var(--surface-2) 0 4px, transparent 4px 8px); }
+.tc-loi .tc-ray > span, .tc-huy .tc-ray > span { background: var(--negative); width: 100% !important; }
+.tc-so { font: 600 12px var(--font-data); color: var(--text-muted); }
+.tc-dang_chay .tc-so { color: var(--accent-text); }
+.tc-dang_chay .tc-ray { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 1px; }
+.tc-hien-tai { display: grid; gap: var(--s2); min-height: 64px; }
+.tc-buoc { display: grid; gap: 2px; }
+.tc-ten { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.tc-ten b { font-size: 19px; }
+.tc-nhan { font: 600 13px var(--font-data); color: var(--accent-text); }
+.tc-chi-tiet { font: 13px/1.5 var(--font-data); color: var(--text); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 600px) { .thanh-chay { margin-inline: calc(-1 * var(--s4)); padding: var(--s3) var(--s4); }
+  .tc-dau > b { font-size: 22px; } .tc-ten b { font-size: 16px; } .tc-doan { gap: 2px; } }
+@media (prefers-reduced-motion: reduce) { .tc-ray > span { transition: none; } }
+
 </style>
 </head>
 <body>
@@ -657,7 +684,16 @@ body.ban-link [data-tai] { display: none; }
         <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg> Dừng
       </button>
     </div>
-    <div class="tong-tien-do" aria-live="polite">
+    <div class="thanh-chay" id="thanh-chay" aria-live="polite">
+      <div class="tc-dau">
+        <b id="tc-phan-tram">0%</b>
+        <span>Đã chạy <b id="tc-da-chay">0 giây</b></span>
+        <span>Còn khoảng <b id="tc-con-lai">—</b></span>
+      </div>
+      <ol class="tc-doan" id="tc-doan" aria-label="12 bước"></ol>
+      <div class="tc-hien-tai" id="tc-hien-tai"></div>
+    </div>
+    <div class="tong-tien-do" hidden>
       <div class="tong-so"><b id="tt-phan-tram">0%</b><span>Đã chạy <b id="tt-da-chay">0 giây</b></span><span>Còn khoảng <b id="tt-con-lai">—</b></span></div>
       <div class="thanh-tien-do" role="progressbar" aria-label="Tiến độ" aria-valuemin="0" aria-valuemax="100" id="tt-thanh"><div style="width:0%"></div></div>
     </div>
@@ -2095,7 +2131,7 @@ E.MODES = {
     n_baseline_seeds: 3, n_hpo_runs: 1, budget: 30, ga_pop_size: 6, ga_max_generations: 5,
     sa_t0_samples: 5, sa_moves_per_temp: 5, n_folds: 3, n_test_seeds_baseline: 3,
     n_eval_seeds_per_config: 3, n_refit_seeds: 3,
-    caps: { ANN_epochs: 150, RF_n_estimators: 300, XGB_n_estimators: 500 },
+    caps: { ANN_epochs: 100, RF_n_estimators: 300, XGB_n_estimators: 500 },   // ANN 100 epoch: chạy xong trong khoảng 2 phút
   },
   chay_day_du: {
     n_baseline_seeds: 30, n_hpo_runs: 30, budget: 300, ga_pop_size: 20, ga_max_generations: 15,
@@ -3878,6 +3914,12 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
   const store = opts.store || null;
   const check = () => { if (runner.cancelled) throw new Cancelled(); };
   const reuseTxt = c => (c ? " – lấy từ lần chạy trước" : "");
+  // opts.pace[bước] (ms): giữ bước vừa xong trên màn hình tối thiểu chừng ấy thời gian để người thuyết trình kịp nói
+  const hold = async (...ids) => {
+    if (!opts.pace) return;
+    const ms = Math.max(0, ...ids.map(i => { const s = prog.step(i); return s.started && s.status !== "bo_qua" ? (opts.pace[i] || 0) - (Date.now() - s.started) : 0; }));
+    if (ms > 0) { await new Promise(r => setTimeout(r, ms)); check(); }
+  };
 
   // Chạy các đơn vị việc: phần đã có trong store không chạy lại
   async function runUnits(units, onResult, onMessage) {
@@ -3904,17 +3946,20 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
       (meta.date_column ? ` · cột ngày '${meta.date_column}', cột tỷ giá '${meta.rate_column}'` : ""));
 
     // 2. Làm sạch
+    await hold(1);
     step = 2; prog.start(2);
     const cl = E.clean(rows, cfg), y = cl.y, days = cl.days, cs = cl.stats;
     prog.done(2, `Còn ${cs.rows_out} dòng, loại ${cs.rows_removed} (dị thường ${cs.anomalies}); ${cs.missing_business_days} ngày làm việc trống`);
     if (store && store.open) await store.open(E.fingerprint(y, cfg));
 
     // 3. Thống kê + tính dừng
+    await hold(2);
     step = 3; prog.start(3, "Chỉ số mô tả, kiểm định ADF và Phillips–Perron cho tỷ giá và mức thay đổi");
     const t41 = E.descriptive(days, y), st = E.stationarity(y), t42 = st.rows, t42c = st.conclusion;
     prog.done(3, t42c.text);
 
     // 4. Đặc trưng + chia dữ liệu
+    await hold(3);
     step = 4; prog.start(4);
     const ctx = new E.Context(y, cfg), s = ctx.split, dv = i => E.fmtVN(days[i]);
     const split = {
@@ -3932,6 +3977,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     let t43 = [], arimaFig = null, arimaT1 = null;
 
     // 5. ARIMA
+    await hold(4);
     step = 5;
     if (cfg.models.includes("ARIMA")) {
       prog.start(5, "Cấu trúc 0/25");
@@ -4075,6 +4121,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 10. Chọn mô hình
+    await hold(9);
     step = 10;
     const selectable = {};
     for (const [k, c] of Object.entries(candidates)) if (c.in_selection) selectable[k] = c.summary;
@@ -4089,6 +4136,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     else prog.update(10, "Không có mô hình học máy – ARIMA chỉ để so sánh nên không có dự báo chính");
 
     // 11. Huấn luyện lại + dự báo T+1
+    await hold(10);
     step = 11; prog.start(11);
     const forecasts = {};
     if (arimaT1) {
@@ -4261,7 +4309,7 @@ E.MODES = {
     n_baseline_seeds: 3, n_hpo_runs: 1, budget: 30, ga_pop_size: 6, ga_max_generations: 5,
     sa_t0_samples: 5, sa_moves_per_temp: 5, n_folds: 3, n_test_seeds_baseline: 3,
     n_eval_seeds_per_config: 3, n_refit_seeds: 3,
-    caps: { ANN_epochs: 150, RF_n_estimators: 300, XGB_n_estimators: 500 },
+    caps: { ANN_epochs: 100, RF_n_estimators: 300, XGB_n_estimators: 500 },   // ANN 100 epoch: chạy xong trong khoảng 2 phút
   },
   chay_day_du: {
     n_baseline_seeds: 30, n_hpo_runs: 30, budget: 300, ga_pop_size: 20, ga_max_generations: 15,
@@ -6044,6 +6092,12 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
   const store = opts.store || null;
   const check = () => { if (runner.cancelled) throw new Cancelled(); };
   const reuseTxt = c => (c ? " – lấy từ lần chạy trước" : "");
+  // opts.pace[bước] (ms): giữ bước vừa xong trên màn hình tối thiểu chừng ấy thời gian để người thuyết trình kịp nói
+  const hold = async (...ids) => {
+    if (!opts.pace) return;
+    const ms = Math.max(0, ...ids.map(i => { const s = prog.step(i); return s.started && s.status !== "bo_qua" ? (opts.pace[i] || 0) - (Date.now() - s.started) : 0; }));
+    if (ms > 0) { await new Promise(r => setTimeout(r, ms)); check(); }
+  };
 
   // Chạy các đơn vị việc: phần đã có trong store không chạy lại
   async function runUnits(units, onResult, onMessage) {
@@ -6070,17 +6124,20 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
       (meta.date_column ? ` · cột ngày '${meta.date_column}', cột tỷ giá '${meta.rate_column}'` : ""));
 
     // 2. Làm sạch
+    await hold(1);
     step = 2; prog.start(2);
     const cl = E.clean(rows, cfg), y = cl.y, days = cl.days, cs = cl.stats;
     prog.done(2, `Còn ${cs.rows_out} dòng, loại ${cs.rows_removed} (dị thường ${cs.anomalies}); ${cs.missing_business_days} ngày làm việc trống`);
     if (store && store.open) await store.open(E.fingerprint(y, cfg));
 
     // 3. Thống kê + tính dừng
+    await hold(2);
     step = 3; prog.start(3, "Chỉ số mô tả, kiểm định ADF và Phillips–Perron cho tỷ giá và mức thay đổi");
     const t41 = E.descriptive(days, y), st = E.stationarity(y), t42 = st.rows, t42c = st.conclusion;
     prog.done(3, t42c.text);
 
     // 4. Đặc trưng + chia dữ liệu
+    await hold(3);
     step = 4; prog.start(4);
     const ctx = new E.Context(y, cfg), s = ctx.split, dv = i => E.fmtVN(days[i]);
     const split = {
@@ -6098,6 +6155,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     let t43 = [], arimaFig = null, arimaT1 = null;
 
     // 5. ARIMA
+    await hold(4);
     step = 5;
     if (cfg.models.includes("ARIMA")) {
       prog.start(5, "Cấu trúc 0/25");
@@ -6241,6 +6299,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     }
 
     // 10. Chọn mô hình
+    await hold(9);
     step = 10;
     const selectable = {};
     for (const [k, c] of Object.entries(candidates)) if (c.in_selection) selectable[k] = c.summary;
@@ -6255,6 +6314,7 @@ E.runPipeline = async function (rows, meta, cfg, runner, onProgress, opts) {
     else prog.update(10, "Không có mô hình học máy – ARIMA chỉ để so sánh nên không có dự báo chính");
 
     // 11. Huấn luyện lại + dự báo T+1
+    await hold(10);
     step = 11; prog.start(11);
     const forecasts = {};
     if (arimaT1) {
@@ -6832,7 +6892,8 @@ async function startRun(cfg, runner, est) {
   const d = state.data;
   try {
     const result = await E.runPipeline(d.rows, { filename: d.filename, date_column: d.info.date_column, rate_column: d.info.rate_column },
-      cfg, runner, renderProgress, { store: null, weights: est && est.weights, estimateSeconds: est && est.total_seconds });   // store null: luôn tính mới
+      cfg, runner, renderProgress, { store: null, pace: PACE,
+        weights: Object.assign({}, est && est.weights, { 1: 3, 2: 3, 3: 3, 4: 3, 10: 2.5 }), estimateSeconds: est && est.total_seconds });   // store null: luôn tính mới
     result.threads = runner.size;
     renderProgress(result.progress);
     $("#td-tien-trinh").previousElementSibling.textContent = "Đã xong";
@@ -6925,7 +6986,29 @@ $("#tm-theo").addEventListener("click", () => { tm.follow = true; renderNarratio
 $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("[data-buoc]"); if (li) tmGo(Number(li.dataset.buoc)); });
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
+// Bước chạy quá nhanh (dưới 1 giây) vẫn được giữ trên màn hình vài giây để kịp thuyết trình; tổng chừng 15 giây
+const PACE = { 1: 3000, 2: 3000, 3: 3000, 4: 3000, 9: 3000, 10: 2500 };
+
+function renderBar(s) {
+  $("#tc-phan-tram").textContent = Math.round(s.percent) + "%";
+  $("#tc-da-chay").textContent = fmtTime(s.elapsed);
+  $("#tc-con-lai").textContent = s.percent >= 100 ? "0 giây" : fmtTime(s.eta);
+  $("#tc-doan").innerHTML = s.steps.map(st => `<li class="tc-${st.status}" title="${esc(st.id + ". " + st.name)}">
+      <span class="tc-ray"><span style="width:${st.status === "xong" ? 100 : st.status === "dang_chay" ? Math.max(6, st.frac * 100) : 0}%"></span></span>
+      <span class="tc-so">${st.id}</span></li>`).join("");
+  const running = s.steps.filter(x => x.status === "dang_chay");
+  const done = s.steps.filter(x => x.status === "xong");
+  const show = running.length ? running : done.slice(-1);
+  $("#tc-hien-tai").innerHTML = show.map(st => `
+    <div class="tc-buoc">
+      <div class="tc-ten"><span class="tc-nhan">Bước ${st.id}/12</span><b>${esc(st.name)}</b>
+        <span class="nhan tt-${st.status}">${st.status === "xong" ? "Xong" : "Đang chạy · " + Math.round(st.frac * 100) + "%"}</span></div>
+      ${st.detail ? `<div class="tc-chi-tiet">${esc(st.detail)}</div>` : `<div class="tc-chi-tiet muted">${esc(st.caption)}</div>`}
+    </div>`).join("");
+}
+
 function renderProgress(s) {
+  renderBar(s);
   $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}` + " · tính mới từ đầu, không dùng kết quả có sẵn";
   $("#tt-phan-tram").textContent = E.vn(s.percent, 1) + "%";
   $("#tt-da-chay").textContent = fmtTime(s.elapsed);

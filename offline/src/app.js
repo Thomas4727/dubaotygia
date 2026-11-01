@@ -450,7 +450,8 @@ async function startRun(cfg, runner, est) {
   const d = state.data;
   try {
     const result = await E.runPipeline(d.rows, { filename: d.filename, date_column: d.info.date_column, rate_column: d.info.rate_column },
-      cfg, runner, renderProgress, { store: null, weights: est && est.weights, estimateSeconds: est && est.total_seconds });   // store null: luôn tính mới
+      cfg, runner, renderProgress, { store: null, pace: PACE,
+        weights: Object.assign({}, est && est.weights, { 1: 3, 2: 3, 3: 3, 4: 3, 10: 2.5 }), estimateSeconds: est && est.total_seconds });   // store null: luôn tính mới
     result.threads = runner.size;
     renderProgress(result.progress);
     $("#td-tien-trinh").previousElementSibling.textContent = "Đã xong";
@@ -543,7 +544,29 @@ $("#tm-theo").addEventListener("click", () => { tm.follow = true; renderNarratio
 $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("[data-buoc]"); if (li) tmGo(Number(li.dataset.buoc)); });
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
+// Bước chạy quá nhanh (dưới 1 giây) vẫn được giữ trên màn hình vài giây để kịp thuyết trình; tổng chừng 15 giây
+const PACE = { 1: 3000, 2: 3000, 3: 3000, 4: 3000, 9: 3000, 10: 2500 };
+
+function renderBar(s) {
+  $("#tc-phan-tram").textContent = Math.round(s.percent) + "%";
+  $("#tc-da-chay").textContent = fmtTime(s.elapsed);
+  $("#tc-con-lai").textContent = s.percent >= 100 ? "0 giây" : fmtTime(s.eta);
+  $("#tc-doan").innerHTML = s.steps.map(st => `<li class="tc-${st.status}" title="${esc(st.id + ". " + st.name)}">
+      <span class="tc-ray"><span style="width:${st.status === "xong" ? 100 : st.status === "dang_chay" ? Math.max(6, st.frac * 100) : 0}%"></span></span>
+      <span class="tc-so">${st.id}</span></li>`).join("");
+  const running = s.steps.filter(x => x.status === "dang_chay");
+  const done = s.steps.filter(x => x.status === "xong");
+  const show = running.length ? running : done.slice(-1);
+  $("#tc-hien-tai").innerHTML = show.map(st => `
+    <div class="tc-buoc">
+      <div class="tc-ten"><span class="tc-nhan">Bước ${st.id}/12</span><b>${esc(st.name)}</b>
+        <span class="nhan tt-${st.status}">${st.status === "xong" ? "Xong" : "Đang chạy · " + Math.round(st.frac * 100) + "%"}</span></div>
+      ${st.detail ? `<div class="tc-chi-tiet">${esc(st.detail)}</div>` : `<div class="tc-chi-tiet muted">${esc(st.caption)}</div>`}
+    </div>`).join("");
+}
+
 function renderProgress(s) {
+  renderBar(s);
   $("#tt-pham-vi").textContent = `${s.mode_name} · ${s.scope}` + " · tính mới từ đầu, không dùng kết quả có sẵn";
   $("#tt-phan-tram").textContent = E.vn(s.percent, 1) + "%";
   $("#tt-da-chay").textContent = fmtTime(s.elapsed);
