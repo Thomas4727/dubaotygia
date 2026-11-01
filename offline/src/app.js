@@ -342,10 +342,7 @@ async function loadFile(file) {
     box.innerHTML = `
       <div class="thong-bao thong-bao-ok">${icon("check")}<div>Đọc được <b>${s.rows_in}</b> dòng · cột ngày <code>${esc(tb.info.date_column)}</code>, cột tỷ giá <code>${esc(tb.info.rate_column)}</code>
         · sau khi làm sạch còn <b>${s.rows_out}</b> quan sát từ <b>${E.fmtVN(cl.days[0])}</b> đến <b>${E.fmtVN(cl.days[cl.days.length - 1])}</b>
-        · tỷ giá cuối <b>${fmt(cl.y[cl.y.length - 1], 0)}</b>.</div></div>
-      <div id="bd-xem-truoc"></div>`;
-    Charts.line($("#bd-xem-truoc"), { labels: cl.days.map(E.fmtISO), size: "nho", aria: "Chuỗi tỷ giá trong file",
-      series: [{ name: "Tỷ giá", data: cl.y, color: "--primary", width: 1.5, legend: false }], xFmt: ngayVN, tipFmt: v => E.vn(v, 0) });
+        · tỷ giá cuối <b>${fmt(cl.y[cl.y.length - 1], 0)}</b>.</div></div>`;
   } catch (e) {
     box.innerHTML = `<div class="thong-bao thong-bao-loi" role="alert">${icon("x")}<div><b>Không dùng được file này.</b> ${esc(e.message || e)}</div></div>`;
   }
