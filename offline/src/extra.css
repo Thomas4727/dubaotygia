@@ -126,3 +126,5 @@ body.ban-link [data-tai] { display: none; }
 @media (max-width: 600px) { .thanh-chay { margin-inline: calc(-1 * var(--s4)); padding: var(--s3) var(--s4); }
   .tc-dau > b { font-size: 22px; } .tc-ten b { font-size: 16px; } .tc-doan { gap: 2px; } }
 @media (prefers-reduced-motion: reduce) { .tc-ray > span { transition: none; } }
+/* Khung giải thích bên phải dính ngay dưới thanh chạy (thanh chạy cũng dính đầu màn hình) */
+@media (min-width: 1081px) { .thuyet-minh { top: var(--tc-cao, 260px); } }

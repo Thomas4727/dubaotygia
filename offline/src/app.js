@@ -447,8 +447,8 @@ async function startRun(cfg, runner, est) {
   const d = state.data;
   try {
     const result = await E.runPipeline(d.rows, { filename: d.filename, date_column: d.info.date_column, rate_column: d.info.rate_column },
-      cfg, runner, renderProgress, { store: null, pace: PACE,
-        weights: Object.assign({}, est && est.weights, { 1: 3, 2: 3, 3: 3, 4: 3, 10: 2.5 }), estimateSeconds: est && est.total_seconds });   // store null: luôn tính mới
+      cfg, runner, renderProgress, { store: null,
+        weights: est && est.weights, estimateSeconds: est && est.total_seconds });   // store null: luôn tính mới
     result.threads = runner.size;
     renderProgress(result.progress);
     $("#td-tien-trinh").previousElementSibling.textContent = "Đã xong";
@@ -541,10 +541,9 @@ $("#tm-theo").addEventListener("click", () => { tm.follow = true; renderNarratio
 $("#tt-cac-buoc").addEventListener("click", e => { const li = e.target.closest("[data-buoc]"); if (li) tmGo(Number(li.dataset.buoc)); });
 
 const STATUS_TEXT = { cho: "Chờ", dang_chay: "Đang chạy", xong: "Xong", bo_qua: "Bỏ qua", loi: "Lỗi", huy: "Đã dừng" };
-// Bước chạy quá nhanh (dưới 1 giây) vẫn được giữ trên màn hình vài giây để kịp thuyết trình; tổng chừng 15 giây
-const PACE = { 1: 3000, 2: 3000, 3: 3000, 4: 3000, 9: 3000, 10: 2500 };
-
 function renderBar(s) {
+  // khung giải thích bên phải dính ngay dưới thanh chạy (thanh cao lên khi GA và SA chạy cùng lúc)
+  requestAnimationFrame(() => document.documentElement.style.setProperty("--tc-cao", ($("#thanh-chay").offsetHeight + 76) + "px"));
   $("#tc-phan-tram").textContent = Math.round(s.percent) + "%";
   $("#tc-da-chay").textContent = fmtTime(s.elapsed);
   $("#tc-con-lai").textContent = s.percent >= 100 ? "0 giây" : fmtTime(s.eta);
